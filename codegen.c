@@ -10,7 +10,7 @@ void codeGen(AST_NODE* prog);
 void codeGen(AST_NODE* prog) {
 
     FILE *output = fopen("w", "output.s");
-    
+
 
     return;
 }

@@ -4,28 +4,37 @@
 #include <string.h>
 
 
-char *AST_TYPE_string[] = {"PROGRAM", "GLOBAL_DECL_LIST", "GLOBAL_DECL", "DECL_LIST", "FUNCTION_DECL", "PARAM_LIST", "PARAM", "DIM_FN", "DIMFN1", "EXPR_NULL", "BLOCK", "DECL", "TYPE_DECL", "VAR_DECL",
-    "TYPE", "STRUCT_TYPE", "DEF_LIST", "DEF", "OPT_TAG", "TAG", "ID_LIST", "DIM_DECL", "CEXPR", "MCEXPR", "CFACTOR", "INIT_ID_LIST", "INIT_ID", "STMT_LIST", "STMT", "ASSIGN_EXPR_LIST",
-    "NONEMPTY_ASSIGN_EXPR_LIST", "TEST", "ASSIGN_EXPR", "RELOP_EXPR", "RELOP_TERM", "RELOP_FACTOR", "REL_OP", "RELOP_EXPR_LIST", "NONEMPTY_RELOP_EXPR_LIST", "EXPR", "ADD_OP", "TERM",
-    "MUL_OP", "FACTOR", "VAR_REF", "DIM", "STRUCT_TAIL", "NUL","ID_value", "CONST_value"};
+char *AST_TYPE_string[] = {
+    "PROGRAM",
+    "GLOBAL_DECL_LIST", "GLOBAL_DECL",
+    "DECL_LIST", "FUNCTION_DECL",
+    "PARAM_LIST", "PARAM",
+    "DIM_FN", "DIMFN1",
+    "EXPR_NULL", "BLOCK",
+    "DECL", "TYPE_DECL", "VAR_DECL", "TYPE", "STRUCT_TYPE",
+    "DEF_LIST", "DEF",
+    "OPT_TAG", "TAG",
+    "ID_LIST", "DIM_DECL",
+    "CEXPR", "MCEXPR", "CFACTOR",
+    "INIT_ID_LIST", "INIT_ID",
+    "STMT_LIST", "STMT",
+    "ASSIGN_EXPR_LIST", "NONEMPTY_ASSIGN_EXPR_LIST",
+    "TEST",
+    "ASSIGN_EXPR",
+    "RELOP_EXPR", "RELOP_TERM", "RELOP_FACTOR",
+    "REL_OP", "RELOP_EXPR_LIST", "NONEMPTY_RELOP_EXPR_LIST",
+    "EXPR", "ADD_OP", "TERM", "MUL_OP", "FACTOR",
+    "VAR_REF", "DIM", "STRUCT_TAIL", "NUL",
+    "ID_value", "CONST_value"
+};
 
-int printGVNode(FILE *fp, AST_NODE* node, int count);
+int printGVNode (FILE *fp, AST_NODE *node, int count);
 
-char *printLabelString(FILE *fp, AST_NODE *astNode)
-{
+char *printLabelString (FILE *fp, AST_NODE *astNode) {
     char *binaryOpString[] = {
-        "+",
-        "-",
-        "*",
-        "/",
-        "==",
-        ">=",
-        "<=",
-        "!=",
-        ">",
-        "<",
-        "&&",
-        "||"
+        "+", "-", "*", "/",
+        "==", ">=", "<=", "!=", ">", "<",
+        "&&", "||"
     };
     char *unaryOpString[] = {
         "+",
@@ -37,6 +46,7 @@ char *printLabelString(FILE *fp, AST_NODE *astNode)
         case PROGRAM_NODE:
             fprintf(fp, "PROGRAM_NODE");
             break;
+
         case DECLARATION_NODE:
             fprintf(fp, "DECLARATION_NODE ");
             switch (astNode->semantic_value.declSemanticValue.kind) {
@@ -54,6 +64,7 @@ char *printLabelString(FILE *fp, AST_NODE *astNode)
                     break;
             }
             break;
+
         case IDENTIFIER_NODE:
             fprintf(fp, "IDENTIFIER_NODE ");
             fprintf(fp, "%s ", astNode->semantic_value.identifierSemanticValue.identifierName);
@@ -69,21 +80,27 @@ char *printLabelString(FILE *fp, AST_NODE *astNode)
                     break;
             }
             break;
+
         case PARAM_LIST_NODE:
             fprintf(fp, "PARAM_LIST_NODE");
             break;
+
         case NUL_NODE:
             fprintf(fp, "NUL_NODE");
             break;
+
         case BLOCK_NODE:
             fprintf(fp, "BLOCK_NODE");
             break;
+
         case VARIABLE_DECL_LIST_NODE:
             fprintf(fp, "VARIABLE_DECL_LIST_NODE");
             break;
+
         case STMT_LIST_NODE:
             fprintf(fp, "STMT_LIST_NODE");
             break;
+
         case STMT_NODE:
             fprintf(fp, "STMT_NODE ");
             switch (astNode->semantic_value.stmtSemanticValue.kind) {
@@ -107,6 +124,7 @@ char *printLabelString(FILE *fp, AST_NODE *astNode)
                     break;
             }
             break;
+
         case EXPR_NODE:
             fprintf(fp, "EXPR_NODE ");
             switch (astNode->semantic_value.exprSemanticValue.kind) {
@@ -118,6 +136,7 @@ char *printLabelString(FILE *fp, AST_NODE *astNode)
                     break;
             }
             break;
+
         case CONST_VALUE_NODE:
             fprintf(fp, "CONST_VALUE_NODE ");
             switch (astNode->semantic_value.const1->const_type) {
@@ -134,20 +153,22 @@ char *printLabelString(FILE *fp, AST_NODE *astNode)
                     break;
             }
             break;
+
         case NONEMPTY_ASSIGN_EXPR_LIST_NODE:
             fprintf(fp, "NONEMPTY_ASSIGN_EXPR_LIST_NODE");
             break;
+
         case NONEMPTY_RELOP_EXPR_LIST_NODE:
             fprintf(fp, "NONEMPTY_RELOP_EXPR_LIST_NODE");
             break;
+
         default:
             fprintf(fp, "default case in char *getLabelString(AST_TYPE astType)");
             break;
     }
 }
 
-void printGV(AST_NODE *root, char* fileName)
-{
+void printGV (AST_NODE *root, char *fileName) {
     if (fileName == NULL) {
         fileName = "AST_Graph.gv";
     }
@@ -170,8 +191,7 @@ void printGV(AST_NODE *root, char* fileName)
 
 // count: the (unused) id number to be used
 // return: then next unused id number
-int printGVNode(FILE *fp, AST_NODE* node, int count)
-{
+int printGVNode (FILE *fp, AST_NODE *node, int count) {
     if (node == NULL) {
         return count;
     }
