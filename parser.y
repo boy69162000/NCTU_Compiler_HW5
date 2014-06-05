@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include "header.h"
 #include "symbolTable.h"
+#include "codegen.h"
 
 int linenumber = 1;
 AST_NODE *prog;
@@ -802,8 +803,7 @@ main (argc, argv)
 
     semanticAnalysis(prog);
 
-    // XXX: call codeGen here
-    // codeGen(prog);
+    codeGen(prog);
 
     symbolTableEnd();
     if (!g_anyErrorOccur) {
