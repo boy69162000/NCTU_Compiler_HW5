@@ -15,10 +15,10 @@ RA pool is a manager to stack and registers
 
 
 
-ASTWalk
+- ASTWalk
     codeGen(AST_NODE *root)
 
-codeEmit
+- codeEmit
 
     emitPreface()                // stuffs before the program body, like .data segments ...
     emitAppendix()               // stuffs after the program body,
@@ -33,11 +33,11 @@ codeEmit
     emitVarDecl()                // get a variable from RA pool
     emitRead()
     emitWrite()
-    emitBeforeFunc()            // stuffs before a function, push EBP, move SP ...
-    emitAfterFunc()             // stuffs after a function, restore everything
-    emitArithmeticStmt()        // a op b, where op = + - * /
+    emitBeforeFunc()             // stuffs before a function, push EBP, move SP ...
+    emitAfterFunc()              // stuffs after a function, restore everything
+    emitArithmeticStmt()         // a op b, where op = + - * /
 
-RA pool
+- RA pool
 
     resource allocation, which register is in use
     allocate register and spilling out
