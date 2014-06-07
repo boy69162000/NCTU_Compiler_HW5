@@ -33,7 +33,7 @@ void emitPreface (FILE *F, AST_NODE *prog) {
 
 // a brief documentation for MIPS instructions
 //
-// Arthmetic instructions
+// Arithmetic instructions
 // add    $d, $s, $t              # $d = $s + $t
 // addu   $d, $s, $t              # unsigned version of above
 // sub    $d, $s, $t              # $d = $s - $t
