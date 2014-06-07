@@ -179,25 +179,29 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 }
 
 void walkTree(AST_NODE *node) {
+    // xaiter: what does left mean?
     AST_NODE *left = node;
 
-    if(node->child != NULL)
+    // this is a DFS?
+    if (node->child != NULL)
         walkTree(node->child);
 
-    while(left != NULL) {
-        switch(left->nodeType) {
+    while (left != NULL) {
+        switch (left->nodeType) {
             case DECLARATION_NODE:
-                if(left->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
+                if (left->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
 
                 }
-                else if(left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
+                else if (left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
 
                 }
                 break;
+
             case BLOCK_NODE:
                 break;
+
             case STMT_NODE:
-                switch(left->semantic_value.stmtSemanticValue.kind) {
+                switch (left->semantic_value.stmtSemanticValue.kind) {
                     case ASSIGN_STMT:
                         break;
                     case IF_STMT:
@@ -214,10 +218,13 @@ void walkTree(AST_NODE *node) {
                         break;
                 }
                 break;
+
             case EXPR_NODE:
 
                 break;
+
             default:
+
                 break;
         }
 
