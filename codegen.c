@@ -178,8 +178,56 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
     return;
 }
 
+void walkTree(AST_NODE *node) {
+    AST_NODE *left = node;    
 
-void codeGen(AST_NODE* prog) {
+    while(left != NULL) {
+        switch(left->nodeType) {
+            case DECLARATION_NODE:
+                if(left->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
+                
+                }
+                else if(left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
+                
+                }
+                break;
+            case BLOCK_NODE:
+                break;
+            case STMT_NODE:
+                switch(left->semantic_value.stmtSemanticValue.kind) {
+                    case ASSIGN_STMT:
+                        break;
+                    case IF_STMT:
+                        break;
+                    case WHILE_STMT:
+                        break;
+                    case FOR_STMT:
+                        break;
+                    case RETURN_STMT:
+                        break;
+                    case FUNCTION_CALL_STMT:
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case EXPR_NODE:
+                
+                break;
+            default:
+                break;
+        }
+
+        left = left->rightSibling;
+    }
+
+    if(node->child != NULL)
+        walkTree(node->child);
+
+    return;
+}
+
+void codeGen(AST_NODE *prog) {
 
     FILE *output = fopen("w", "output.s");
 
@@ -190,6 +238,8 @@ void codeGen(AST_NODE* prog) {
 
     emitPreface(output, prog);
     // XXX xaiter: walk the AST
+    
+    // end of walk the AST
     emitAppendix(output, prog);
 
     fclose(output);
