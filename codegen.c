@@ -181,6 +181,9 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 void walkTree(AST_NODE *node) {
     AST_NODE *left = node;    
 
+    if(node->child != NULL)
+        walkTree(node->child);
+
     while(left != NULL) {
         switch(left->nodeType) {
             case DECLARATION_NODE:
@@ -220,9 +223,6 @@ void walkTree(AST_NODE *node) {
 
         left = left->rightSibling;
     }
-
-    if(node->child != NULL)
-        walkTree(node->child);
 
     return;
 }
