@@ -179,7 +179,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 }
 
 void walkTree(AST_NODE *node) {
-    AST_NODE *left = node;    
+    AST_NODE *left = node;
 
     if(node->child != NULL)
         walkTree(node->child);
@@ -188,10 +188,10 @@ void walkTree(AST_NODE *node) {
         switch(left->nodeType) {
             case DECLARATION_NODE:
                 if(left->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
-                
+
                 }
                 else if(left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
-                
+
                 }
                 break;
             case BLOCK_NODE:
@@ -215,7 +215,7 @@ void walkTree(AST_NODE *node) {
                 }
                 break;
             case EXPR_NODE:
-                
+
                 break;
             default:
                 break;
@@ -238,7 +238,7 @@ void codeGen(AST_NODE *prog) {
 
     emitPreface(output, prog);
     // XXX xaiter: walk the AST
-    
+
     // end of walk the AST
     emitAppendix(output, prog);
 
