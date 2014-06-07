@@ -6,6 +6,14 @@
 #include "header.h"
 #include "symbolTable.h"
 
+
+// xatier: in order to print better asswembly codes, the length of mnemonic + space should be 8
+// for instance:
+//
+//     add     $d, $s, $t
+//     addu    $d, $s, $t
+//     addiu   $d, $s, C
+
 // xatier: use this function for debug messages
 void _DBG (FILE *F, const AST_NODE *node, const char *msg) {
     if (node)
@@ -92,6 +100,8 @@ void emitPreface (FILE *F, AST_NODE *prog) {
 // sub.d  $x, $y, $z
 // mul.d  $x, $y, $z
 // div.d  $x, $y, $z
+//
+// XXX: http://www.ece.lsu.edu/ee4720/2014/lfp.s.html
 //
 //
 // Pseudo instructions
@@ -250,22 +260,22 @@ void emitWrite (FILE *F, AST_NODE *functionCallNode) {
     char *buf = "";
     switch (paramtype) {
         case INT_TYPE:
-            fprintf(F, "li    $v0, 1\n");
-            fprintf(F, "la    $a0, %s\n", buf);
+            fprintf(F, "li      $v0, 1\n");
+            fprintf(F, "la      $a0, %s\n", buf);
             fprintf(F, "syscall\n");
             break;
 
         case FLOAT_TYPE:
-            fprintf(F, "li    $v0, 2\n");
-            fprintf(F, "la    $f12, %s\n", buf);
+            fprintf(F, "li      $v0, 2\n");
+            fprintf(F, "la      $f12, %s\n", buf);
             fprintf(F, "syscall\n");
             break;
 
         // Note xatier: there's no double in this homework
 
         case CONST_STRING_TYPE:
-            fprintf(F, "li    $v0, 4\n");
-            fprintf(F, "la    $a0, %s\n", string);
+            fprintf(F, "li      $v0, 4\n");
+            fprintf(F, "la      $a0, %s\n", string);
             fprintf(F, "syscall\n");
             break;
 
@@ -317,6 +327,120 @@ void emitFunc (FILE *F, AST_NODE *functionCallNode) {
 
 void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
     _DBG(F, exprNode, "expr");
+
+    // xatier: make sure they are binary operations
+    if (exprNode->semantic_value.exprSemanticValue.kind == BINARY_OPERATION) {
+        AST_NODE *leftOp = exprNode->child;
+        AST_NODE *rightOp = leftOp->rightSibling;
+
+        // instruction operands are interger (only support signed integer in the homework)
+        if (leftOp->dataType == INT_TYPE && rightOp->dataType == INT_TYPE) {
+            // xatier: it's a good idea to use $t0, $t1, $t2 for all arithmetic operations although it's slow XD
+            // push $t0, $t1, $t2
+            fprintf(F, "sub     $sp, $sp, 4\n");
+            fprintf(F, "sw      $t0, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
+            fprintf(F, "sw      $t1, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
+            fprintf(F, "sw      $t2, ($sp)\n");
+
+            // xatier: the basic idea is, put operands in $t0 and $t1,
+            //     use $t2 as temp is needed
+            //     after that, store the result into $t0
+
+            // XXX: load leftOp and rightOp to $f0 and $f1
+
+            switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
+                case BINARY_OP_ADD:
+                    fprintf(F, "add     $t0, $t0, $t1\n");
+                    break;
+                case BINARY_OP_SUB:
+                    fprintf(F, "sub     $t0, $t0, $t1\n");
+                    break;
+                case BINARY_OP_MUL:
+                    fprintf(F, "mult    $t0, $t1\n");
+                    fprintf(F, "mflo    $t0\n");
+                    break;
+                case BINARY_OP_DIV:
+                    fprintf(F, "div     $t0, $t1\n");
+                    fprintf(F, "mflo    $t0\n");
+                    break;
+                case BINARY_OP_EQ:
+                    // XXX: fixme
+                    break;
+                // greater equal = not less than
+                // less equal = not greater than
+                case BINARY_OP_GE:
+                    fprintf(F, "slt     $t0, $t0, $t1\n");
+                    fprintf(F, "xori    $t0, 1\n");
+                    break;
+                case BINARY_OP_LE:
+                    fprintf(F, "slt     $t0, $t1, $t0\n");
+                    fprintf(F, "xori    $t0, 1\n");
+                case BINARY_OP_NE:
+                    // XXX: fixme
+                    break;
+                case BINARY_OP_GT:
+                    fprintf(F, "slt     $t0, $t1, t0\n");
+                    break;
+                case BINARY_OP_LT:
+                    fprintf(F, "slt     $t0, $t0, $t1\n")
+                    break;
+                case BINARY_OP_AND:
+                    fprintf(F, "and     $t0, $t0, $t1\n");
+                    break;
+                case BINARY_OP_OR:
+                    fprintf(F, "or      $t0, $t0, $t1\n");
+                    break;
+                default:
+                    Fprintf("# undefined operation occurred\n");
+                    exit(1);
+                    break;
+            }
+
+            // XXX: move $t0 to another result holder
+
+            // pop $t0, $t1, $t2
+            fprintf(F, "lw      $t2, ($sp)\n");
+            fprintf(F, "addiu   $sp, $sp, 4\n");
+            fprintf(F, "lw      $t1, ($sp)\n");
+            fprintf(F, "addiu   $sp, $sp, 4\n");
+            fprintf(F, "lw      $t0, ($sp)\n");
+            fprintf(F, "addiu   $sp, $sp, 4\n");
+        }
+        // instruction operands are float
+        else if (leftOp->dataType == INT_TYPE && rightOp->dataType == FLOAT_TYPE) {
+            // push $f0, $f1, $f2
+            fprintf(F, "swc1    $f0, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
+            fprintf(F, "swc1    $f1, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
+            fprintf(F, "swc1    $f2, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
+
+            // XXX: load leftOp and rightOp to $f0 and $f1
+
+            // XXX: switch case here
+            // XXX: http://www.ece.lsu.edu/ee4720/2014/lfp.s.html
+            // add.s  $x, $y, $z
+            // sub.s  $x, $y, $z
+            // mul.s  $x, $y, $z
+            // div.s  $x, $y, $z
+
+            // pop $f0, $f1, $f2
+            fprintf(F, "lwc1    $f2, ($sp)\n");
+            fprintf(F, "addiu   $sp, $sp, 4\n");
+            fprintf(F, "lwc1    $f1, ($sp)\n");
+            fprintf(F, "addiu   $sp, $sp, 4\n");
+            fprintf(F, "lwc1    $f0, ($sp)\n");
+            fprintf(F, "addiu   $sp, $sp, 4\n");
+        }
+        else {
+            Fprintf("# undefined operation occurred\n");
+            exit(1);
+        }
+    }
+
     return;
 }
 
