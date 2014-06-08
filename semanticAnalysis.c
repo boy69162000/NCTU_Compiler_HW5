@@ -95,15 +95,15 @@ void printErrorMsg(AST_NODE* node, ErrorMsgKind errorMsgKind)
             node->semantic_value.identifierSemanticValue.identifierName);
         break;
     case SYMBOL_REDECLARE:
-        printf("ID \'%s\' redeclared.\n", 
+        printf("ID \'%s\' redeclared.\n",
             node->semantic_value.identifierSemanticValue.identifierName);
         break;
     case SYMBOL_UNDECLARED:
-        printf("ID \'%s\' undeclared.\n", 
+        printf("ID \'%s\' undeclared.\n",
             node->semantic_value.identifierSemanticValue.identifierName);
         break;
     case NOT_FUNCTION_NAME:
-        printf("ID \'%s\' is not a function.\n", 
+        printf("ID \'%s\' is not a function.\n",
             node->semantic_value.identifierSemanticValue.identifierName);
         break;
     case TRY_TO_INIT_ARRAY:
@@ -217,7 +217,7 @@ void processProgramNode(AST_NODE *programNode)
             processDeclarationNode(traverseDeclaration);
         }
 
-        
+
         if(traverseDeclaration->dataType == ERROR_TYPE)
         {
             programNode->dataType = ERROR_TYPE;
@@ -237,7 +237,7 @@ void processDeclarationNode(AST_NODE* declarationNode)
         declarationNode->dataType = ERROR_TYPE;
         return;
     }
-    
+
     switch(declarationNode->semantic_value.declSemanticValue.kind)
     {
     case VARIABLE_DECL:
@@ -268,7 +268,7 @@ void processTypeNode(AST_NODE* idNodeAsType)
     else
     {
         idNodeAsType->semantic_value.identifierSemanticValue.symbolTableEntry = symbolTableEntry;
-        
+
         switch(symbolTableEntry->attribute->attr.typeDescriptor->kind)
         {
         case SCALAR_TYPE_DESCRIPTOR:
@@ -287,7 +287,7 @@ void declareIdList(AST_NODE* declarationNode, SymbolAttributeKind isVariableOrTy
 {
     AST_NODE* typeNode = declarationNode->child;
     TypeDescriptor *typeDescriptorOfTypeNode = typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor;
-    if((isVariableOrTypeAttribute == VARIABLE_ATTRIBUTE) && 
+    if((isVariableOrTypeAttribute == VARIABLE_ATTRIBUTE) &&
        (typeDescriptorOfTypeNode->kind == SCALAR_TYPE_DESCRIPTOR) &&
        (typeDescriptorOfTypeNode->properties.dataType == VOID_TYPE))
     {
@@ -314,7 +314,7 @@ void declareIdList(AST_NODE* declarationNode, SymbolAttributeKind isVariableOrTy
                 attribute->attr.typeDescriptor = typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor;
                 break;
             case ARRAY_ID:
-                if((isVariableOrTypeAttribute == TYPE_ATTRIBUTE) && 
+                if((isVariableOrTypeAttribute == TYPE_ATTRIBUTE) &&
                    (typeDescriptorOfTypeNode->kind == SCALAR_TYPE_DESCRIPTOR) &&
                    (typeDescriptorOfTypeNode->properties.dataType == VOID_TYPE))
                 {
@@ -332,7 +332,7 @@ void declareIdList(AST_NODE* declarationNode, SymbolAttributeKind isVariableOrTy
                 }
                 else if(typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor->kind == SCALAR_TYPE_DESCRIPTOR)
                 {
-                    attribute->attr.typeDescriptor->properties.arrayProperties.elementType = 
+                    attribute->attr.typeDescriptor->properties.arrayProperties.elementType =
                         typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor->properties.dataType;
                 }
                 else if(typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor->kind == ARRAY_TYPE_DESCRIPTOR)
@@ -348,15 +348,15 @@ void declareIdList(AST_NODE* declarationNode, SymbolAttributeKind isVariableOrTy
                     }
                     else
                     {
-                        attribute->attr.typeDescriptor->properties.arrayProperties.elementType = 
+                        attribute->attr.typeDescriptor->properties.arrayProperties.elementType =
                             typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor->properties.arrayProperties.elementType;
-                        attribute->attr.typeDescriptor->properties.arrayProperties.dimension = 
+                        attribute->attr.typeDescriptor->properties.arrayProperties.dimension =
                             typeArrayDimension + idArrayDimension;
                         int indexType = 0;
                         int indexId = 0;
                         for(indexType = 0, indexId = idArrayDimension; indexId < idArrayDimension + typeArrayDimension; ++indexType, ++indexId)
                         {
-                            attribute->attr.typeDescriptor->properties.arrayProperties.sizeInEachDimension[indexId] = 
+                            attribute->attr.typeDescriptor->properties.arrayProperties.sizeInEachDimension[indexId] =
                                 typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor->properties.arrayProperties.sizeInEachDimension[indexType];
                         }
                     }
@@ -481,7 +481,7 @@ void checkWriteFunction(AST_NODE* functionCallNode)
     processGeneralNode(actualParameterList);
 
     AST_NODE* actualParameter = actualParameterList->child;
-    
+
     int actualParameterNumber = 0;
     while(actualParameter)
     {
@@ -499,7 +499,7 @@ void checkWriteFunction(AST_NODE* functionCallNode)
         }
         actualParameter = actualParameter->rightSibling;
     }
-    
+
     if(actualParameterNumber > 1)
     {
         printErrorMsg(functionIDNode, TOO_MANY_ARGUMENTS);
@@ -569,7 +569,7 @@ void checkFunctionCall(AST_NODE* functionCallNode)
         actualParameter = actualParameter->rightSibling;
         formalParameter = formalParameter->next;
     }
-    
+
     if(parameterPassingError)
     {
         functionCallNode->dataType = ERROR_TYPE;
@@ -599,7 +599,7 @@ void checkParameterPassing(Parameter* formalParameter, AST_NODE* actualParameter
     {
         actualParameterIsPtr = 1;
     }
-    
+
     if(formalParameter->type->kind == SCALAR_TYPE_DESCRIPTOR && actualParameterIsPtr)
     {
         printErrorMsgSpecial(actualParameter, formalParameter->parameterName, PASS_ARRAY_TO_SCALAR);
@@ -738,7 +738,7 @@ void evaluateExprValue(AST_NODE* exprNode)
                 printf("Unhandled case in void evaluateExprValue(AST_NODE* exprNode)\n");
                 break;
             }
-            
+
             return;
         }
         else
@@ -909,7 +909,7 @@ void processExprNode(AST_NODE* exprNode)
             exprNode->dataType = operand->dataType;
         }
 
-        
+
         if((exprNode->dataType != ERROR_TYPE) &&
            (operand->nodeType == CONST_VALUE_NODE || (operand->nodeType == EXPR_NODE && operand->semantic_value.exprSemanticValue.isConstEval))
           )
@@ -945,9 +945,9 @@ void processVariableLValue(AST_NODE* idNode)
         idNode->dataType = ERROR_TYPE;
         return;
     }
-    
+
     TypeDescriptor *typeDescriptor = idNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor;
-        
+
     if(idNode->semantic_value.identifierSemanticValue.kind == NORMAL_ID)
     {
         if(typeDescriptor->kind == ARRAY_TYPE_DESCRIPTOR)
@@ -1003,7 +1003,7 @@ void processVariableLValue(AST_NODE* idNode)
 void processVariableRValue(AST_NODE* idNode)
 {
     SymbolTableEntry *symbolTableEntry = retrieveSymbol(idNode->semantic_value.identifierSemanticValue.identifierName);
-    
+
     idNode->semantic_value.identifierSemanticValue.symbolTableEntry = symbolTableEntry;
     if(!symbolTableEntry)
     {
@@ -1011,7 +1011,7 @@ void processVariableRValue(AST_NODE* idNode)
         idNode->dataType = ERROR_TYPE;
         return;
     }
-    
+
     if(symbolTableEntry->attribute->attributeKind == TYPE_ATTRIBUTE)
     {
         printErrorMsg(idNode, IS_TYPE_NOT_VARIABLE);
@@ -1020,7 +1020,7 @@ void processVariableRValue(AST_NODE* idNode)
     }
 
     TypeDescriptor *typeDescriptor = idNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor;
-        
+
     if(idNode->semantic_value.identifierSemanticValue.kind == NORMAL_ID)
     {
         if(typeDescriptor->kind == ARRAY_TYPE_DESCRIPTOR)
@@ -1315,7 +1315,7 @@ void processDeclDimList(AST_NODE* idNode, TypeDescriptor* typeDescriptor, int ig
         }
         else
         {
-            typeDescriptor->properties.arrayProperties.sizeInEachDimension[dimension] = 
+            typeDescriptor->properties.arrayProperties.sizeInEachDimension[dimension] =
                 traverseDim->semantic_value.exprSemanticValue.constEvalValue.iValue;
         }
 
@@ -1346,7 +1346,7 @@ void declareFunction(AST_NODE* declarationNode)
         functionNameID->dataType = ERROR_TYPE;
         errorOccur = 1;
     }
-    
+
     SymbolAttribute* attribute = NULL;
     attribute = (SymbolAttribute*)malloc(sizeof(SymbolAttribute));
     attribute->attributeKind = FUNCTION_SIGNATURE;
@@ -1387,7 +1387,7 @@ void declareFunction(AST_NODE* declarationNode)
     }
 
     Parameter *parameterListTail = attribute->attr.functionSignature->parameterList;
-    
+
     while(traverseParameter)
     {
         ++parametersCount;
@@ -1413,7 +1413,7 @@ void declareFunction(AST_NODE* declarationNode)
     if(errorOccur && (attribute != NULL))
     {
         Parameter* traverseParameter = attribute->attr.functionSignature->parameterList;
-        Parameter* next = NULL; 
+        Parameter* next = NULL;
         while(traverseParameter)
         {
             next = traverseParameter->next;
