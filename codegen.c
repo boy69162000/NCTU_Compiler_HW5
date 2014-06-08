@@ -448,38 +448,71 @@ void walkTree(AST_NODE *node) {
     // xaiter: what does left mean?
     // jyhsu : leftmost sibling
     AST_NODE *left = node;
+    int ofst = offset;
 
-    // this is a DFS? // Y
-    if (node->child != NULL)
-        walkTree(node->child);
+    // this is a DFS? // actually not quite so
 
     while (left != NULL) {
         switch (left->nodeType) {
             case DECLARATION_NODE:
                 if (left->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
+                    walkTree(left->child);
+                    enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute)
+                    left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->offset = ARoffset;
+                    emitVarDecl(left);
+                    if(left->child->rightSibling->semantic_value.identifierSemanticValue.kind == NORMAL_ID) {
+                        ARoffset -= 4;
+                    }
+                    else if(left->child->rightSibling->semantic_value.identifierSemanticValue.kind == ARRAY_ID) {
+                        AST_NODE *dim = left->child->rightSibling->rightSibling;
+                        int size = 1;
+                        while(dim) {
+                            if(dim->nodeType == CONST_VALUE_TYPE)
+                                size *= dim->semantic_value.const1->const_u.intval;
+                            else if(dim->nodeType == EXPR_NODE)
+                                size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
 
+                            dim = dim->rightSibling;
+                        }
+                        ARoffset -= size*4;
+                    }
                 }
                 else if (left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
-
+                    enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute)
+                    emitBeforeFunc(F, left);
+                    walkTree(left->child);
+                    emitAfterFunc(F, left);
+                    ARoffset = 0;
                 }
                 break;
 
             case BLOCK_NODE:
+                emitBeforeBlock(F, left);
+                openScope();    
+                walkTree(left->child);
+                closeScope();
+                emitAfterBlock(F, left);
                 break;
 
             case STMT_NODE:
                 switch (left->semantic_value.stmtSemanticValue.kind) {
                     case ASSIGN_STMT:
+                        emitAssignStmt(F, left);
                         break;
                     case IF_STMT:
+                        emitIfStmt(F, left);
                         break;
                     case WHILE_STMT:
+                        emitWhileStmt(F, left);
                         break;
                     case FOR_STMT:
+                        emitForStmt(F, left);
                         break;
                     case RETURN_STMT:
+                        emitRetStmt(F, left);
                         break;
                     case FUNCTION_CALL_STMT:
+                        emitFunc(F, left);
                         break;
                     default:
                         break;
@@ -487,11 +520,13 @@ void walkTree(AST_NODE *node) {
                 break;
 
             case EXPR_NODE:
-
+                walkTree(node->child);
+                emitArithmeticStmt(node);
                 break;
 
             default:
 
+                walkTree(node->child);
                 break;
         }
 
@@ -512,7 +547,7 @@ void codeGen(AST_NODE *prog) {
 
     emitPreface(output, prog);
     // XXX xaiter: walk the AST
-
+    walkTree(prog);
     // end of walk the AST
     emitAppendix(output, prog);
 
