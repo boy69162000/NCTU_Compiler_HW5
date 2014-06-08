@@ -446,9 +446,10 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
 void walkTree(AST_NODE *node) {
     // xaiter: what does left mean?
+    // jyhsu : leftmost sibling
     AST_NODE *left = node;
 
-    // this is a DFS?
+    // this is a DFS? // Y
     if (node->child != NULL)
         walkTree(node->child);
 
