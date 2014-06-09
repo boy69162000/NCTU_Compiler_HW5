@@ -13,6 +13,7 @@
 #define HASH_TABLE_SIZE 256
 
 int ARoffset = 0;
+int regctr = 0;
 
 typedef enum SymbolAttributeKind {
     VARIABLE_ATTRIBUTE,
@@ -80,6 +81,7 @@ typedef struct SymbolTableEntry {
     SymbolAttribute *attribute;
     int nestingLevel;
     int offset;
+    int place;
 
 } SymbolTableEntry;
 

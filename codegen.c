@@ -27,7 +27,54 @@ void emitPreface (FILE *F, AST_NODE *prog) {
     // Ex.
     // .data
     // _result:    .word 0
+    
+    AST_NODE *decl = prog->child;
 
+    fprintf(F, ".data\n");
+    while(decl != NULL) {
+        if(decl->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
+            AST_NODE *id = decl->child->rightSibling;
+            while(id != NULL) {
+                switch(id->semantic_value.identifierSemanticValue.kind) {
+                    case NORMAL_ID:
+                        if(id->dataType == FLOAT_TYPE)
+                            fprintf(F, "_%s: .float 0.0\n", id->semantic_value.identifierSemanticValue.identifierName);
+                        else
+                            fprintf(F, "_%s: .word 0\n", id->semantic_value.identifierSemanticValue.identifierName);
+                        break;
+                    case ARRAY_ID:
+                        AST_NODE *dim = id->child;
+                        int size = 1;
+                        while(dim) {
+                            if(dim->nodeType == CONST_VALUE_TYPE)
+                                size *= dim->semantic_value.const1->const_u.intval;
+                            else if(dim->nodeType == EXPR_NODE)
+                                size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
+
+                            dim = dim->rightSibling;
+                        }
+
+                        fprintf(F, "_%s: .space %d\n", id->semantic_value.identifierSemanticValue.identifierName, size*4);
+                        break;
+                    case WITH_INIT_ID:
+                        if(id->dataType == FLOAT_TYPE && id->child->nodeType == CONST_VALUE_NODE)
+                            fprintf(F, "_%s: .float %f\n", id->semantic_value.identifierSemanticValue.identifierName, id->child->semantic_value.const1->const_u.fval);
+                        else if(id->dataType == FLOAT_TYPE && id->child->nodeType == EXPR_NODE)
+                            fprintf(F, "_%s: .float %f\n", id->semantic_value.identifierSemanticValue.identifierName, id->child->semantic_value.exprSemanticValue.constEvalValue.fValue);
+                        else if(id->child->nodeType == CONST_VALUE_NODE)
+                            fprintf(F, "_%s: .word %d\n", id->semantic_value.identifierSemanticValue.identifierName, id->child->semantic_value.const1->const_u.intval);
+                        else
+                            fprintf(F, "_%s: .word %d\n", id->semantic_value.identifierSemanticValue.identifierName, id->child->semantic_value.exprSemanticValue.constEvalValue.iValue);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        decl = decl->rightSibling;
+    }
+    fprintf(F, ".text\n");
     return;
 }
 
@@ -454,28 +501,41 @@ void walkTree(AST_NODE *node) {
 
     while (left != NULL) {
         switch (left->nodeType) {
+            case VARIABLE_DECL_LIST_NODE:
+                if(symbolTable.currentLevel == 0)
+                    emitPreface(F, left);
+                else
+                    walkTree(left->child);
+                break;
             case DECLARATION_NODE:
                 if (left->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
-                    walkTree(left->child);
-                    enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute)
-                    left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->offset = ARoffset;
-                    emitVarDecl(left);
-                    if(left->child->rightSibling->semantic_value.identifierSemanticValue.kind == NORMAL_ID) {
-                        ARoffset -= 4;
-                    }
-                    else if(left->child->rightSibling->semantic_value.identifierSemanticValue.kind == ARRAY_ID) {
-                        AST_NODE *dim = left->child->rightSibling->rightSibling;
-                        int size = 1;
-                        while(dim) {
-                            if(dim->nodeType == CONST_VALUE_TYPE)
-                                size *= dim->semantic_value.const1->const_u.intval;
-                            else if(dim->nodeType == EXPR_NODE)
-                                size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
+                    AST_NODE *id = left->child->rightSibling;
 
-                            dim = dim->rightSibling;
+                    //walkTree(left->child);
+                    while(id != NULL) {
+                        enterSymbol(id->semantic_value.identifierSemanticValue.identifierName, id->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
+
+                        id->semantic_value.identifierSemanticValue.symbolTableEntry->offset = ARoffset;
+                        if(id->semantic_value.identifierSemanticValue.kind == NORMAL_ID) {
+                            ARoffset -= 4;
                         }
-                        ARoffset -= size*4;
+                        else if(id->semantic_value.identifierSemanticValue.kind == ARRAY_ID) {
+                            AST_NODE *dim = id->child;
+                            int size = 1;
+                            while(dim) {
+                                if(dim->nodeType == CONST_VALUE_TYPE)
+                                    size *= dim->semantic_value.const1->const_u.intval;
+                                else if(dim->nodeType == EXPR_NODE)
+                                    size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
+
+                                dim = dim->rightSibling;
+                            }
+                            ARoffset -= size*4;
+                        }
+
+                        id = id->rightSibling;
                     }
+                    emitVarDecl(left);
                 }
                 else if (left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
                     enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute)
@@ -512,7 +572,14 @@ void walkTree(AST_NODE *node) {
                         emitRetStmt(F, left);
                         break;
                     case FUNCTION_CALL_STMT:
-                        emitFunc(F, left);
+                        if(strcmp(left->child->semantic_value.identifierSemanticValue.identifierName, "read") == 0)
+                            emitRead(F, left);
+                        else if(strcmp(left->child->semantic_value.identifierSemanticValue.identifierName, "fread") == 0)
+                            //fread
+                        else if(strcmp(left->child->semantic_value.identifierSemanticValue.identifierName, "write") == 0)
+                            emitWrite(F, left);
+                        else
+                            emitFunc(F, left);
                         break;
                     default:
                         break;
@@ -545,7 +612,7 @@ void codeGen(AST_NODE *prog) {
         exit(1);
     }
 
-    emitPreface(output, prog);
+    //emitPreface(output, prog);
     // XXX xaiter: walk the AST
     walkTree(prog);
     // end of walk the AST
