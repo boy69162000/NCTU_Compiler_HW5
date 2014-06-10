@@ -236,13 +236,13 @@ void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
 
 void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
     _DBG(F, assignmentNode, "assign = ");
-    AST_NODE *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
+    SymbolTableEntry *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
 
     fprintf(F, "sub     $sp, $sp, 4\n");
     fprintf(F, "sw      $t0, ($sp)\n");
 
     fprintf(F, "lw      $t0, 8($sp)\n");
-    fprintf(F, "sw      $t0, $d($fp)\n", offset);
+    fprintf(F, "sw      $t0, %d($fp)\n", entry->offset);
 
     fprintf(F, "lw      $t0, ($sp)\n");
     fprintf(F, "addiu   $sp, $sp, 4\n");
@@ -252,14 +252,17 @@ void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
 
 void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     _DBG(F, ifNode, "if ( ... )");
-    /*AST_NODE *ifBlock = ifNode->child->rightSibling;
-    int l = label++;
+    AST_NODE *ifBlock = ifNode->child->rightSibling;
+
+    char ifLabel[10];
+    sprintf(ifLabel, "ifl_%5d", rand());
 
     fprintf(F, "sub     $sp, $sp, 4\n");
     fprintf(F, "sw      $t0, ($sp)\n");
 
+    // XXX: xatier: 4($sp) == the condition?
     fprintf(F, "lw      $t0, 4($sp)\n");
-    fprintf(F, "beqz    $t0, lelse%d\n", l);
+    fprintf(F, "beqz    $t0, %s_else\n", ifLabel);
 
     fprintf(F, "lw      $t0, ($sp)\n");
     fprintf(F, "addiu   $sp, $sp, 4\n");
@@ -268,41 +271,22 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     walkTree(F, ifBlock->child);
     _DBG(F, ifBlock, "block }");
 
-    if(ifBlock->rightSibling->nodeType != NUL_NODE) {
-        fprintf("j       lexit%d\n", l);
-        emitElseIfStmt(F, ifBlock->rightSibling, l);
-        fprintf("lexit%d:\n", l);
-    }*/
+    fprintf(F, "j       %s_exit\n", ifLabel);
 
-
-    return;
+    if (ifBlock->rightSibling->nodeType != NUL_NODE) {
+        fprintf(F, "%s_else:\n", ifLabel);
+        // else-if
+        if (ifBlock->rightSibling->semantic_value.stmtSemanticValue.kind == IF_STMT) {
+            emitIfStmt(F, ifBlock->rightSibling);
+        }
+        // only else
+        else {
+            walkTree(F, ifBlock->rightSibling);
+        }
+    }
+    fprintf(F, "%s_exit:\n", ifLabel);
 }
 
-/*void emitElseIfStmt(FILE *F, AST_NODE *elseIfNode, int lexit) {
-    _DBG(F, esleIfNode, "else if ( ... )");
-    AST_NODE *node = elseIfNode;
-    int l;
-
-    while(node->nodeType != BLOCK_NODE) {
-        l = label++;
-        fprintf(F, "sub     $sp, $sp, 4\n");
-        fprintf(F, "sw      $t0, ($sp)\n");
-
-        fprintf(F, "lw      $t0, 4($sp)\n");
-        fprintf(F, "beqz    $t0, lelse%d\n", l);
-
-        fprintf(F, "lw      $t0, ($sp)\n");
-        fprintf(F, "addiu   $sp, $sp, 4\n");
-
-        _DBG(F, node->child->rightSibling, "block {");
-        walkTree(F, node->child->rightSibling->child);
-        _DBG(F, node->child->rightSibling, "block }");
-
-        node = node->child->rightSibling->rightSibling;
-    }
-
-    return;
-}*/
 
 void emitWhileStmt (FILE *F, AST_NODE *whileNode) {
     _DBG(F, whileNode, "while ( ... )");
@@ -674,7 +658,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
     return;
 }
 
-void walkTree(FILE *F, AST_NODE *node) {
+void walkTree (FILE *F, AST_NODE *node) {
     // xaiter: what does left mean?
     // jyhsu : leftmost sibling
     AST_NODE *left = node;
