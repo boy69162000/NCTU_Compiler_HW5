@@ -274,13 +274,13 @@ void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
 
 void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
     _DBG(F, assignmentNode, "assign = ");
-    AST_NODE *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
+    SymbolTableEntry *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
 
     fprintf(F, "sub     $sp, $sp, 4\n");
     fprintf(F, "sw      $t0, ($sp)\n");
 
     fprintf(F, "lw      $t0, 8($sp)\n");
-    fprintf(F, "sw      $t0, $d($fp)\n", offset);
+    fprintf(F, "sw      $t0, %d($fp)\n", entry->offset);
 
     fprintf(F, "lw      $t0, ($sp)\n");
     fprintf(F, "addiu   $sp, $sp, 4\n");
@@ -290,14 +290,17 @@ void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
 
 void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     _DBG(F, ifNode, "if ( ... )");
-    /*AST_NODE *ifBlock = ifNode->child->rightSibling;
-    int l = label++;
+    AST_NODE *ifBlock = ifNode->child->rightSibling;
+
+    char ifLabel[10];
+    sprintf(ifLabel, "ifl_%5d", rand());
 
     fprintf(F, "sub     $sp, $sp, 4\n");
     fprintf(F, "sw      $t0, ($sp)\n");
 
+    // XXX: xatier: 4($sp) == the condition?
     fprintf(F, "lw      $t0, 4($sp)\n");
-    fprintf(F, "beqz    $t0, lelse%d\n", l);
+    fprintf(F, "beqz    $t0, %s_else\n", ifLabel);
 
     fprintf(F, "lw      $t0, ($sp)\n");
     fprintf(F, "addiu   $sp, $sp, 4\n");
@@ -306,41 +309,22 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     walkTree(F, ifBlock->child);
     _DBG(F, ifBlock, "block }");
 
-    if(ifBlock->rightSibling->nodeType != NUL_NODE) {
-        fprintf("j       lexit%d\n", l);
-        emitElseIfStmt(F, ifBlock->rightSibling, l);
-        fprintf("lexit%d:\n", l);
-    }*/
-    
-    
-    return;
+    fprintf(F, "j       %s_exit\n", ifLabel);
+
+    if (ifBlock->rightSibling->nodeType != NUL_NODE) {
+        fprintf(F, "%s_else:\n", ifLabel);
+        // else-if
+        if (ifBlock->rightSibling->semantic_value.stmtSemanticValue.kind == IF_STMT) {
+            emitIfStmt(F, ifBlock->rightSibling);
+        }
+        // only else
+        else {
+            walkTree(F, ifBlock->rightSibling);
+        }
+    }
+    fprintf(F, "%s_exit:\n", ifLabel);
 }
 
-/*void emitElseIfStmt(FILE *F, AST_NODE *elseIfNode, int lexit) {
-    _DBG(F, esleIfNode, "else if ( ... )");
-    AST_NODE *node = elseIfNode;
-    int l;
-
-    while(node->nodeType != BLOCK_NODE) {
-        l = label++;
-        fprintf(F, "sub     $sp, $sp, 4\n");
-        fprintf(F, "sw      $t0, ($sp)\n");
-
-        fprintf(F, "lw      $t0, 4($sp)\n");
-        fprintf(F, "beqz    $t0, lelse%d\n", l);
-
-        fprintf(F, "lw      $t0, ($sp)\n");
-        fprintf(F, "addiu   $sp, $sp, 4\n");
-
-        _DBG(F, node->child->rightSibling, "block {");
-        walkTree(F, node->child->rightSibling->child);
-        _DBG(F, node->child->rightSibling, "block }");
-
-        node = node->child->rightSibling->rightSibling;
-    }
-
-    return;
-}*/
 
 void emitWhileStmt (FILE *F, AST_NODE *whileNode) {
     _DBG(F, whileNode, "while ( ... )");
@@ -543,26 +527,32 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             //     after that, store the result into $t0
 
             // XXX: load leftOp and rightOp to $f0 and $f1
+            fprintf(F, "lw      $t0, 0($sp)\n");
+            fprintf(F, "lw      $t0, -4($sp)\n");
 
+            // we need a unique lable for jump here
             char eqLabel[10];
             char neLabel[10];
             switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
                 case BINARY_OP_ADD:
                     fprintf(F, "add     $t0, $t0, $t1\n");
                     break;
+
                 case BINARY_OP_SUB:
                     fprintf(F, "sub     $t0, $t0, $t1\n");
                     break;
+
                 case BINARY_OP_MUL:
                     fprintf(F, "mult    $t0, $t1\n");
                     fprintf(F, "mflo    $t0\n");
                     break;
+
                 case BINARY_OP_DIV:
                     fprintf(F, "div     $t0, $t1\n");
                     fprintf(F, "mflo    $t0\n");
                     break;
+
                 case BINARY_OP_EQ:
-                    // we need a unique lable for jump here
                     sprintf(eqLabel, "eql_%5d", rand());
                     fprintf(F, "bne     $t0, $t1, %s\n", eqLabel);
                     fprintf(F, "addi    $t0, $zero, 1\n");
@@ -571,17 +561,20 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "addi    $t0, $zero, 0\n");
                     frptinf(F, "%sxx:\n", eqLabel);
                     break;
+
                 // greater equal = not less than
                 // less equal = not greater than
                 case BINARY_OP_GE:
                     fprintf(F, "slt     $t0, $t0, $t1\n");
                     fprintf(F, "xori    $t0, 1\n");
                     break;
+
                 case BINARY_OP_LE:
                     fprintf(F, "slt     $t0, $t1, $t0\n");
                     fprintf(F, "xori    $t0, 1\n");
+                    break;
+
                 case BINARY_OP_NE:
-                    // we need a unique lable for jump here
                     sprintf(neLabel, "nel_%5d", rand());
                     fprintf(F, "beq     $t0, $t1, %s\n", neLabel);
                     fprintf(F, "addi    $t0, $zero, 1\n");
@@ -590,18 +583,23 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "addi    $t0, $zero, 0\n");
                     frptinf(F, "%sxx:\n", neLabel);
                     break;
+
                 case BINARY_OP_GT:
                     fprintf(F, "slt     $t0, $t1, t0\n");
                     break;
+
                 case BINARY_OP_LT:
                     fprintf(F, "slt     $t0, $t0, $t1\n");
                     break;
+
                 case BINARY_OP_AND:
                     fprintf(F, "and     $t0, $t0, $t1\n");
                     break;
+
                 case BINARY_OP_OR:
                     fprintf(F, "or      $t0, $t0, $t1\n");
                     break;
+
                 default:
                     fprintf(F, "# undefined operation occurred\n");
                     exit(1);
@@ -613,40 +611,133 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
         // instruction operands are float
         else if (leftOp->dataType == INT_TYPE && rightOp->dataType == FLOAT_TYPE) {
             // push $f0, $f1, $f2
-            fprintf(F, "swc1    $f0, ($sp)\n");
-            fprintf(F, "sub     $sp, $sp, 4\n");
-            fprintf(F, "swc1    $f1, ($sp)\n");
-            fprintf(F, "sub     $sp, $sp, 4\n");
-            fprintf(F, "swc1    $f2, ($sp)\n");
-            fprintf(F, "sub     $sp, $sp, 4\n");
+            //fprintf(F, "sub     $sp, $sp, 4\n");
+            //fprintf(F, "swc1    $f0, ($sp)\n");
+            //fprintf(F, "sub     $sp, $sp, 4\n");
+            //fprintf(F, "swc1    $f1, ($sp)\n");
+            //fprintf(F, "sub     $sp, $sp, 4\n");
+            //fprintf(F, "swc1    $f2, ($sp)\n");
 
             // XXX: load leftOp and rightOp to $f0 and $f1
+            fprintf(F, "lwc1    $f0, ($sp)\n");
+            fprintf(F, "lwc1    $f1, -4($sp)\n");
 
             // XXX: switch case here
             // XXX: http://www.ece.lsu.edu/ee4720/2014/lfp.s.html
-            // add.s  $x, $y, $z
-            // sub.s  $x, $y, $z
-            // mul.s  $x, $y, $z
-            // div.s  $x, $y, $z
+            switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
+                case BINARY_OP_ADD:
+                    fprintf(F, "add.s   $f0, $f0, $f1\n");
+                    break;
+
+                case BINARY_OP_SUB:
+                    fprintf(F, "sub.s   $f0, $f0, $f1\n");
+                    break;
+
+                case BINARY_OP_MUL:
+                    fprintf(F, "mul.s   $f0, $f0, $f1\n");
+                    break;
+
+                case BINARY_OP_DIV:
+                    fprintf(F, "div.s   $f0, $f0, $f1\n");
+                    break;
+
+                case BINARY_OP_EQ:
+                    fprintf(F, "c.eq.s   $f0, $f1\n");
+                    break;
+
+                case BINARY_OP_GE:
+                    // xatier: ge = not lt
+                    fprintf(F, "c.lt.s   $f1, $f0\n");
+                    break;
+
+                case BINARY_OP_LE:
+                    fprintf(F, "c.le.s   $f0, $f1\n");
+                    break;
+
+                case BINARY_OP_NE:
+                    fprintf(F, "c.eq.s   $f0, $f1\n");
+                    break;
+
+                case BINARY_OP_GT:
+                    // xatier: gt = not le
+                    fprintf(F, "c.le.s   $f1, $f0\n");
+                    break;
+
+                case BINARY_OP_LT:
+                    fprintf(F, "c.lt.s   $f0, $f1\n");
+                    break;
+            }
 
             // pop $f0, $f1, $f2
-            fprintf(F, "lwc1    $f2, ($sp)\n");
-            fprintf(F, "addiu   $sp, $sp, 4\n");
-            fprintf(F, "lwc1    $f1, ($sp)\n");
-            fprintf(F, "addiu   $sp, $sp, 4\n");
-            fprintf(F, "lwc1    $f0, ($sp)\n");
-            fprintf(F, "addiu   $sp, $sp, 4\n");
+            //fprintf(F, "lwc1    $f2, ($sp)\n");
+            //fprintf(F, "addiu   $sp, $sp, 4\n");
+            //fprintf(F, "lwc1    $f1, ($sp)\n");
+            //fprintf(F, "addiu   $sp, $sp, 4\n");
+            //fprintf(F, "lwc1    $f0, ($sp)\n");
+            //fprintf(F, "addiu   $sp, $sp, 4\n");
         }
         else {
             fprintf(F, "# undefined operation occurred\n");
             exit(1);
         }
     }
+    else if (exprNode->semantic_value.exprSemanticValue.kind == UNARY_OPERATION) {
+        AST_NODE *operand = exprNode->child;
+        if (operand->dataType == INT_TYPE) {
+            fprintf(F, "lw      $t0, 0($sp)\n");
+            switch (exprNode->semantic_value.exprSemanticValue.op.unaryOp) {
+                case UNARY_OP_POSITIVE:
+                    // don't need to to anything
+                    break;
+
+                case UNARY_OP_NEGATIVE:
+                    fprintf(F, "sub     $t0, $zero, $t0");
+                    break;
+
+                case UNARY_OP_LOGICAL_NEGATION:
+                    fprintf(F, "nor     $t0, $t0, $zero");
+                    break;
+
+                default:
+                    printf("Unhandled case in void evaluateExprValue(AST_NODE* exprNode)\n");
+                    break;
+            }
+        }
+        else if (operand->dataType == FLOAT_TYPE) {
+            switch (exprNode->semantic_value.exprSemanticValue.op.unaryOp) {
+                case UNARY_OP_POSITIVE:
+                    // skip
+                    break;
+
+                case UNARY_OP_NEGATIVE:
+                    fprintf(F, "neg.s   $f0, $f0");
+                    break;
+
+                case UNARY_OP_LOGICAL_NEGATION:
+                    // skip
+                    break;
+
+                default:
+                    printf("Unhandled case in void evaluateExprValue(AST_NODE* exprNode)\n");
+                    break;
+            }
+
+        }
+        else {
+            fprintf(F, "# undefined operation occurred\n");
+            exit(1);
+        }
+    }
+    else {
+        fprintf(F, "# undefined operation occurred\n");
+        exit(1);
+
+    }
 
     return;
 }
 
-void walkTree(FILE *F, AST_NODE *node) {
+void walkTree (FILE *F, AST_NODE *node) {
     // xaiter: what does left mean?
     // jyhsu : leftmost sibling
     AST_NODE *left = node;
