@@ -27,7 +27,7 @@ void emitPreface (FILE *F, AST_NODE *prog) {
     // Ex.
     // .data
     // _result:    .word 0
-    
+
     AST_NODE *decl = prog->child;
 
     fprintf(F, ".data\n");
@@ -35,6 +35,8 @@ void emitPreface (FILE *F, AST_NODE *prog) {
         if(decl->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
             AST_NODE *id = decl->child->rightSibling;
             while(id != NULL) {
+                AST_NODE *dim = id->child;
+                int size = 1;
                 switch(id->semantic_value.identifierSemanticValue.kind) {
                     case NORMAL_ID:
                         if(id->dataType == FLOAT_TYPE)
@@ -43,10 +45,8 @@ void emitPreface (FILE *F, AST_NODE *prog) {
                             fprintf(F, "_%s: .word 0\n", id->semantic_value.identifierSemanticValue.identifierName);
                         break;
                     case ARRAY_ID:
-                        AST_NODE *dim = id->child;
-                        int size = 1;
                         while(dim) {
-                            if(dim->nodeType == CONST_VALUE_TYPE)
+                            if(dim->nodeType == CONST_VALUE_NODE)
                                 size *= dim->semantic_value.const1->const_u.intval;
                             else if(dim->nodeType == EXPR_NODE)
                                 size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
@@ -276,6 +276,19 @@ void emitRead (FILE *F, AST_NODE *functionCallNode) {
     return;
 }
 
+// xatier: float fread(void);
+// syscall when
+//     $v0 == 6
+//
+// return value
+//     stored in $f0
+void emitFread (FILE *F, AST_NODE *functionCallNode) {
+    _DBG(F, functionCallNode, "fread( ... )");
+    fprintf(F, "li    $v0, 6\n");
+    fprintf(F, "syscall\n");
+    return;
+}
+
 // xatier:
 // void write(const int);
 // syscall when
@@ -305,6 +318,7 @@ void emitWrite (FILE *F, AST_NODE *functionCallNode) {
 
     // this is a buffer for parameter register
     char *buf = "";
+    int paramtype;
     switch (paramtype) {
         case INT_TYPE:
             fprintf(F, "li      $v0, 1\n");
@@ -322,7 +336,7 @@ void emitWrite (FILE *F, AST_NODE *functionCallNode) {
 
         case CONST_STRING_TYPE:
             fprintf(F, "li      $v0, 4\n");
-            fprintf(F, "la      $a0, %s\n", string);
+            fprintf(F, "la      $a0, %s\n", buf);
             fprintf(F, "syscall\n");
             break;
 
@@ -349,6 +363,7 @@ void emitBeforeFunc (FILE *F, AST_NODE *functionCallNode) {
 
 void emitAfterFunc(FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "after f( ... )");
+    char *functionName;
     fprintf(F, "# epilogue sequence\n");
     fprintf(F, "_end_%s:\n", functionName);
     // _framesize_of_xxx_function:
@@ -431,7 +446,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "slt     $t0, $t1, t0\n");
                     break;
                 case BINARY_OP_LT:
-                    fprintf(F, "slt     $t0, $t0, $t1\n")
+                    fprintf(F, "slt     $t0, $t0, $t1\n");
                     break;
                 case BINARY_OP_AND:
                     fprintf(F, "and     $t0, $t0, $t1\n");
@@ -440,7 +455,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "or      $t0, $t0, $t1\n");
                     break;
                 default:
-                    Fprintf("# undefined operation occurred\n");
+                    fprintf(F, "# undefined operation occurred\n");
                     exit(1);
                     break;
             }
@@ -483,7 +498,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             fprintf(F, "addiu   $sp, $sp, 4\n");
         }
         else {
-            Fprintf("# undefined operation occurred\n");
+            fprintf(F, "# undefined operation occurred\n");
             exit(1);
         }
     }
@@ -491,11 +506,11 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
     return;
 }
 
-void walkTree(AST_NODE *node) {
+void walkTree(FILE *F, AST_NODE *node) {
     // xaiter: what does left mean?
     // jyhsu : leftmost sibling
     AST_NODE *left = node;
-    int ofst = offset;
+    int ofst = offset;   // xatier: table offset?
 
     // this is a DFS? // actually not quite so
 
@@ -505,7 +520,7 @@ void walkTree(AST_NODE *node) {
                 if(symbolTable.currentLevel == 0)
                     emitPreface(F, left);
                 else
-                    walkTree(left->child);
+                    walkTree(F, left->child);
                 break;
             case DECLARATION_NODE:
                 if (left->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
@@ -523,7 +538,7 @@ void walkTree(AST_NODE *node) {
                             AST_NODE *dim = id->child;
                             int size = 1;
                             while(dim) {
-                                if(dim->nodeType == CONST_VALUE_TYPE)
+                                if(dim->nodeType == CONST_VALUE_NODE)
                                     size *= dim->semantic_value.const1->const_u.intval;
                                 else if(dim->nodeType == EXPR_NODE)
                                     size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
@@ -535,12 +550,12 @@ void walkTree(AST_NODE *node) {
 
                         id = id->rightSibling;
                     }
-                    emitVarDecl(left);
+                    emitVarDecl(F, left);
                 }
                 else if (left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
-                    enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute)
+                    enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
                     emitBeforeFunc(F, left);
-                    walkTree(left->child);
+                    walkTree(F, left->child);
                     emitAfterFunc(F, left);
                     ARoffset = 0;
                 }
@@ -548,8 +563,8 @@ void walkTree(AST_NODE *node) {
 
             case BLOCK_NODE:
                 emitBeforeBlock(F, left);
-                openScope();    
-                walkTree(left->child);
+                openScope();
+                walkTree(F, left->child);
                 closeScope();
                 emitAfterBlock(F, left);
                 break;
@@ -574,9 +589,9 @@ void walkTree(AST_NODE *node) {
                     case FUNCTION_CALL_STMT:
                         if(strcmp(left->child->semantic_value.identifierSemanticValue.identifierName, "read") == 0)
                             emitRead(F, left);
-                        else if(strcmp(left->child->semantic_value.identifierSemanticValue.identifierName, "fread") == 0)
-                            //fread
-                        else if(strcmp(left->child->semantic_value.identifierSemanticValue.identifierName, "write") == 0)
+                        else if (strcmp(left->child->semantic_value.identifierSemanticValue.identifierName, "fread") == 0)
+                            emitFread(F, left);
+                        else if (strcmp(left->child->semantic_value.identifierSemanticValue.identifierName, "write") == 0)
                             emitWrite(F, left);
                         else
                             emitFunc(F, left);
@@ -587,13 +602,13 @@ void walkTree(AST_NODE *node) {
                 break;
 
             case EXPR_NODE:
-                walkTree(node->child);
-                emitArithmeticStmt(node);
+                walkTree(F, node->child);
+                emitArithmeticStmt(F, node);
                 break;
 
             default:
 
-                walkTree(node->child);
+                walkTree(F, node->child);
                 break;
         }
 
@@ -612,9 +627,9 @@ void codeGen(AST_NODE *prog) {
         exit(1);
     }
 
-    //emitPreface(output, prog);
+    emitPreface(output, prog);
     // XXX xaiter: walk the AST
-    walkTree(prog);
+    walkTree(output, prog);
     // end of walk the AST
     emitAppendix(output, prog);
 
