@@ -13,6 +13,8 @@ int HASH (char *str) {
 	return (idx & (HASH_TABLE_SIZE-1));
 }
 
+int ARoffset = 0;
+int regctr = 0;
 SymbolTable symbolTable;
 
 SymbolTableEntry *newSymbolTableEntry (int nestingLevel) {

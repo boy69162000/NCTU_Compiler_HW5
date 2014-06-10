@@ -4,9 +4,13 @@
 #include <stdarg.h>
 #include <time.h>
 
-#include "header.h"
 #include "symbolTable.h"
+#include "codegen.h"
 
+
+extern SymbolTable symbolTable;
+extern int ARoffset;
+void walkTree (FILE *F, AST_NODE *node);
 
 // xatier: in order to print better asswembly codes, the length of mnemonic + space should be 8
 // for instance:
@@ -260,7 +264,7 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     fprintf(F, "sub     $sp, $sp, 4\n");
     fprintf(F, "sw      $t0, ($sp)\n");
 
-    // XXX: xatier: 4($sp) == the condition?
+    // xatier: 4($sp) == the condition?
     fprintf(F, "lw      $t0, 4($sp)\n");
     fprintf(F, "beqz    $t0, %s_else\n", ifLabel);
 
@@ -449,7 +453,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
             // XXX: load leftOp and rightOp to $f0 and $f1
             fprintf(F, "lw      $t0, 0($sp)\n");
-            fprintf(F, "lw      $t0, -4($sp)\n");
+            fprintf(F, "lw      $t1, 4($sp)\n");
 
             // we need a unique lable for jump here
             char eqLabel[10];
@@ -478,9 +482,9 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "bne     $t0, $t1, %s\n", eqLabel);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "j       %sxx\r", eqLabel);
-                    frptinf(F, "%s:\n", eqLabel);
+                    fprintf(F, "%s:\n", eqLabel);
                     fprintf(F, "addi    $t0, $zero, 0\n");
-                    frptinf(F, "%sxx:\n", eqLabel);
+                    fprintf(F, "%sxx:\n", eqLabel);
                     break;
 
                 // greater equal = not less than
@@ -500,9 +504,9 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "beq     $t0, $t1, %s\n", neLabel);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "j       %sxx\r", neLabel);
-                    frptinf(F, "%s:\n", neLabel);
+                    fprintf(F, "%s:\n", neLabel);
                     fprintf(F, "addi    $t0, $zero, 0\n");
-                    frptinf(F, "%sxx:\n", neLabel);
+                    fprintf(F, "%sxx:\n", neLabel);
                     break;
 
                 case BINARY_OP_GT:
@@ -539,12 +543,10 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             //fprintf(F, "sub     $sp, $sp, 4\n");
             //fprintf(F, "swc1    $f2, ($sp)\n");
 
-            // XXX: load leftOp and rightOp to $f0 and $f1
+            // load leftOp and rightOp to $f0 and $f1
             fprintf(F, "lwc1    $f0, ($sp)\n");
-            fprintf(F, "lwc1    $f1, -4($sp)\n");
+            fprintf(F, "lwc1    $f1, 4($sp)\n");
 
-            // XXX: switch case here
-            // XXX: http://www.ece.lsu.edu/ee4720/2014/lfp.s.html
             switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
                 case BINARY_OP_ADD:
                     fprintf(F, "add.s   $f0, $f0, $f1\n");
@@ -769,6 +771,7 @@ void walkTree (FILE *F, AST_NODE *node) {
     return;
 }
 
+
 void codeGen(AST_NODE *prog) {
 
     FILE *output = fopen("w", "output.s");
@@ -779,8 +782,8 @@ void codeGen(AST_NODE *prog) {
         exit(1);
     }
 
-    //emitPreface(output, prog);
-    // XXX xaiter: walk the AST
+    emitPreface(output, prog);
+    // xaiter: walk the AST
     walkTree(output, prog);
     // end of walk the AST
     emitAppendix(output, prog);

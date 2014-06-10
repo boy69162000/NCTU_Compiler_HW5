@@ -12,8 +12,6 @@
 #define SYMBOL_TABLE_SYS_LIB_FREAD "fread"
 #define HASH_TABLE_SIZE 256
 
-int ARoffset = 0;
-int regctr = 0;
 
 typedef enum SymbolAttributeKind {
     VARIABLE_ATTRIBUTE,

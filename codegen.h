@@ -2,10 +2,8 @@
 #define __CODEGEN_H__
 #include "header.h"
 
-int label = 1;
 
-
-void codeGen(AST_NODE *prog);
+void codeGen (AST_NODE *prog);
 
 
 
