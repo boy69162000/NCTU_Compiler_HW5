@@ -11,6 +11,7 @@
 extern SymbolTable symbolTable;
 extern int ARoffset;
 void walkTree (FILE *F, AST_NODE *node);
+void emitArithmeticStmt (FILE *F, AST_NODE *exprNode);
 
 // xatier: in order to print better asswembly codes, the length of mnemonic + space should be 8
 // for instance:
@@ -28,7 +29,7 @@ void _DBG (FILE *F, const AST_NODE *node, const char *msg) {
 // xatier: nothing here, preserve for the future
 void emitPreface (FILE *F, AST_NODE *prog) {
     _DBG(F, prog, "start");
-    // XXX xatier: global variables stored in .data segment
+    // xatier: global variables stored in .data segment
     // Ex.
     // .data
     // _result:    .word 0
@@ -37,9 +38,12 @@ void emitPreface (FILE *F, AST_NODE *prog) {
 
     fprintf(F, ".data\n");
     while (decl != NULL) {
+        // XXX: xatier this is wrong because decl->semantic_value.declSemanticValue is not initialized, so everything inside is zero
+        // that cause kind == VARIABLE_DECL
         if (decl->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
             AST_NODE *id = decl->child->rightSibling;
 
+            // XXX: xatier: this is an infinite loop, cause you don't change id ...
             while (id != NULL) {
                 AST_NODE *dim = id->child;
                 int size = 1;
@@ -158,7 +162,6 @@ void emitPreface (FILE *F, AST_NODE *prog) {
 // mul.d  $x, $y, $z
 // div.d  $x, $y, $z
 //
-// XXX: http://www.ece.lsu.edu/ee4720/2014/lfp.s.html
 //
 //
 // Pseudo instructions
@@ -370,16 +373,20 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
 
 
 void emitWhileStmt (FILE *F, AST_NODE *whileNode) {
+    char whileLabel[10];
+    sprintf(whileLabel, "whilel_%5d", rand());
     _DBG(F, whileNode, "while ( ... )");
-    int l = label++;
-    fprintf(F, "lwhile%d:\n", l);
+
+    fprintf(F, "%s:\n", whileLabel);
+
     emitArithmeticStmt(F, whileNode->child);
+
     fprintf(F, "lw      $t0, ($sp)\n");
     fprintf(F, "add     $sp, $sp, 4\n");
-    fprintf(F, "beqz    $t0, lexit%d\n", l);
+    fprintf(F, "beqz    $t0, %s_exit\n", whileLabel);
     walkTree(F, whileNode->child->rightSibling);
-    fprintf(F, "j       lwhile%d\n", l);
-    fprintf(F, "lexit%d:\n", l);
+    fprintf(F, "j       %s\n", whileLabel);
+    fprintf(F, "%s_exit:\n", whileLabel);
     return;
 }
 
@@ -592,7 +599,7 @@ void emitAfterFunc(FILE *F, AST_NODE *funcDeclNode) {
 void emitFunc (FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "in f( ... )");
     char *functionName = functionCallNode->child->semantic_value.identifierSemanticValue.identifierName;
-    SymbolTableEntry *entry = functionCallNode->child->symboTableEntry;
+    SymbolTableEntry *entry = functionCallNode->child->semantic_value.identifierSemanticValue.symbolTableEntry;
 
     fprintf(F, "jal     %s\n", functionName);
     if(entry->attribute->attr.functionSignature->returnType != VOID_TYPE) {
@@ -650,7 +657,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             //     use $t2 as temp is needed
             //     after that, store the result into $t0
 
-            // XXX: load leftOp and rightOp to $f0 and $f1
+            // load leftOp and rightOp to $f0 and $f1
             fprintf(F, "lw      $t0, 4($sp)\n");
             fprintf(F, "lw      $t1, 8($sp)\n");
             fprintf(F, "add     $sp, $sp, 8\n");
@@ -940,6 +947,8 @@ void walkTree (FILE *F, AST_NODE *node) {
 
                     //walkTree(left->child);
                     while(id != NULL) {
+                        // XXX: xatier: this line will cause an error because
+                        //     id->semantic_value.identifierSemanticValue.symbolTableEntry == NULL
                         enterSymbol(id->semantic_value.identifierSemanticValue.identifierName, id->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
 
                         id->semantic_value.identifierSemanticValue.symbolTableEntry->offset = ARoffset;
@@ -1033,7 +1042,7 @@ void walkTree (FILE *F, AST_NODE *node) {
 
 void codeGen(AST_NODE *prog) {
 
-    FILE *output = fopen("w", "output.s");
+    FILE *output = fopen("output.s", "w");
     srand(time(NULL));
 
     if (!output) {
