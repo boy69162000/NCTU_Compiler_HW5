@@ -246,9 +246,9 @@ param
         {
             //jyhsu
             $$ = makeDeclNode(FUNCTION_PARAMETER_DECL);
-            ast_node *idnode = makeidnode($2, array_id);
-            makechild(idnode, $3);
-            makefamily($$, 2, $1, idnode);
+            AST_NODE *idnode = makeIDNode($2, ARRAY_ID);
+            makeChild(idnode, $3);
+            makeFamily($$, 2, $1, idnode);
         }
     | ID ID dim_fn
         {
