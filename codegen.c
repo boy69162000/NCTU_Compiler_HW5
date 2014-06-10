@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
 #include "header.h"
 #include "symbolTable.h"
@@ -397,14 +398,6 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
         // instruction operands are interger (only support signed integer in the homework)
         if (leftOp->dataType == INT_TYPE && rightOp->dataType == INT_TYPE) {
-            // xatier: it's a good idea to use $t0, $t1, $t2 for all arithmetic operations although it's slow XD
-            // push $t0, $t1, $t2
-            fprintf(F, "sub     $sp, $sp, 4\n");
-            fprintf(F, "sw      $t0, ($sp)\n");
-            fprintf(F, "sub     $sp, $sp, 4\n");
-            fprintf(F, "sw      $t1, ($sp)\n");
-            fprintf(F, "sub     $sp, $sp, 4\n");
-            fprintf(F, "sw      $t2, ($sp)\n");
 
             // xatier: the basic idea is, put operands in $t0 and $t1,
             //     use $t2 as temp is needed
@@ -428,7 +421,15 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "mflo    $t0\n");
                     break;
                 case BINARY_OP_EQ:
-                    // XXX: fixme
+                    // we need a unique lable for jump here
+                    char eqLabel[10];
+                    sprintf(eqLable, "eql_%5d", rand());
+                    fprintf(F, "bne     $t0, $t1, %s\n", eqLabel);
+                    fprintf(F, "addi    $t0, $zero, 1\n");
+                    fprintf(F, "j       %sxx\r", eqLabel);
+                    frptinf(F, "%s:\n", eqLabel);
+                    fprintf(F, "addi    $t0, $zero, 0\n");
+                    frptinf(F, "%sxx:\n", eqLabel);
                     break;
                 // greater equal = not less than
                 // less equal = not greater than
@@ -440,7 +441,15 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "slt     $t0, $t1, $t0\n");
                     fprintf(F, "xori    $t0, 1\n");
                 case BINARY_OP_NE:
-                    // XXX: fixme
+                    // we need a unique lable for jump here
+                    char neLabel[10];
+                    sprintf(neLable, "nel_%5d", rand());
+                    fprintf(F, "beq     $t0, $t1, %s\n", neLabel);
+                    fprintf(F, "addi    $t0, $zero, 1\n");
+                    fprintf(F, "j       %sxx\r", neLabel);
+                    frptinf(F, "%s:\n", neLabel);
+                    fprintf(F, "addi    $t0, $zero, 0\n");
+                    frptinf(F, "%sxx:\n", neLabel);
                     break;
                 case BINARY_OP_GT:
                     fprintf(F, "slt     $t0, $t1, t0\n");
@@ -460,15 +469,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
             }
 
-            // XXX: move $t0 to another result holder
 
-            // pop $t0, $t1, $t2
-            fprintf(F, "lw      $t2, ($sp)\n");
-            fprintf(F, "addiu   $sp, $sp, 4\n");
-            fprintf(F, "lw      $t1, ($sp)\n");
-            fprintf(F, "addiu   $sp, $sp, 4\n");
-            fprintf(F, "lw      $t0, ($sp)\n");
-            fprintf(F, "addiu   $sp, $sp, 4\n");
         }
         // instruction operands are float
         else if (leftOp->dataType == INT_TYPE && rightOp->dataType == FLOAT_TYPE) {
@@ -621,6 +622,7 @@ void walkTree(FILE *F, AST_NODE *node) {
 void codeGen(AST_NODE *prog) {
 
     FILE *output = fopen("w", "output.s");
+    srand(time(NULL));
 
     if (!output) {
         puts("[-] file open error");
