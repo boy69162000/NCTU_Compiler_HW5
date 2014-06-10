@@ -251,14 +251,14 @@ void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
         AST_NODE *id = decl->child->rightSibling;
 
         while (id != NULL) {
+            AST_NODE *dim = id->child;
+            int size = 1;
             switch (id->semantic_value.identifierSemanticValue.kind) {
                 case NORMAL_ID:
                     total += 4;
                     break;
 
                 case ARRAY_ID:
-                    AST_NODE *dim = id->child;
-                    int size = 1;
 
                     while (dim != NULL) {
                         if (dim->nodeType == CONST_VALUE_NODE)
@@ -268,7 +268,7 @@ void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
 
                         dim = dim->rightSibling;
                     }
-                    total += size*4
+                    total += size*4;
                     break;
 
                 case WITH_INIT_ID:
@@ -362,14 +362,14 @@ void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
     AST_NODE *id = declarationNode->child->rightSibling;
 
     while (id != NULL) {
+        AST_NODE *dim = id->child;
+        int size = 1;
         switch (id->semantic_value.identifierSemanticValue.kind) {
             case NORMAL_ID:
                 fprintf(F, "sub     $sp, $sp, 4");
                 break;
 
             case ARRAY_ID:
-                AST_NODE *dim = id->child;
-                int size = 1;
 
                 while (dim != NULL) {
                     if (dim->nodeType == CONST_VALUE_NODE)
@@ -505,7 +505,7 @@ void emitBeforeFunc (FILE *F, AST_NODE *funcDeclNode) {
 }
 
 void emitAfterFunc(FILE *F, AST_NODE *funcDeclNode) {
-    _DBG(F, functionCallNode, "after f( ... )");
+    _DBG(F, funcDeclNode, "after f( ... )");
     char *functionName = funcDeclNode->child->rightSibling->semantic_value.identifierSemanticValue.identifierName;
     fprintf(F, "# epilogue sequence\n");
     fprintf(F, "_end_%s:\n", functionName);
