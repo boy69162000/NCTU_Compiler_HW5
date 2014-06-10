@@ -294,9 +294,34 @@ void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
     emitArithmeticStmt(F, assignmentNode->child->rightSibling);
     fprintf(F, "sw      $t0, ($sp)\n");
     fprintf(F, "sub     $sp, $sp, 4\n");
-    //NEED type coercion
-    fprintf(F, "lw      $t0, 8($sp)\n");
-    fprintf(F, "sw      $t0, %d($fp)\n", entry->offset);
+
+    if (assignmentNode->child->dataType == INT_TYPE) {
+        fprintf(F, "lw      $t0, 8($sp)\n");
+        fprintf(F, "sw      $t0, %d($fp)\n", entry->offset);
+    }
+    else if (assignmentNode->child->dataType == FLOAT_TYPE) {
+        if (assignmentNode->child->rightSibling->dataType == INT_TYPE) {
+            // assign float <- int
+            fprintf(F, "lw      $t0, 8($sp)\n");
+            fprintf(F, "mtc1    $t0, $f0\n");
+            fprintf(F, "nop");
+            fprintf(F, "swc1    $f0, %d($fp)\n", entry->offset);
+        }
+        else if (assignmentNode->child->rightSibling->dataType == FLOAT_TYPE) {
+            // assign float <- float
+            fprintf(F, "lwc1    $f0, 8($sp)\n");
+            fprintf(F, "swc1    $f0, %d($fp)\n", entry->offset);
+
+        }
+        else {
+            printf("invalid assignment! [float <- ?]\n");
+            exit(1);
+        }
+    }
+    else {
+        printf("invalid assignment! [? <- ?]\n");
+        exit(1);
+    }
 
     fprintf(F, "addiu   $sp, $sp, 4\n");
     fprintf(F, "lw      $t0, ($sp)\n");
@@ -585,7 +610,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
     // jyhsu: make sure it is expr node
     if(exprNode->nodeType == CONST_VALUE_NODE) {
-        
+
     }
     else if(exprNode->nodeType == IDENTIFIER_NODE) {
 
