@@ -235,6 +235,44 @@ void emitBeforeBlock (FILE *F, AST_NODE *blockNode) {
 
 void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
     _DBG(F, blockNode, "block }");
+
+    if(blockNode->child->nodeType != VARIABLE_DECL_LIST_NODE)
+        return;
+
+    AST_NODE *decl = blockNode->child->child;
+    int total = 0;
+    while(decl != NULL) {
+        AST_NODE *id = decl->child->rightSibling;
+
+        while(id != NULL) {
+            switch(id->semantic_value.identifierSemanticValue.kind) {
+                case NORMAL_ID:
+                    total += 4;
+                    break;
+                case ARRAY_ID:
+                    AST_NODE *dim = id->child;
+                    int size = 1;
+                    while(dim != NULL) {
+                        if(dim->nodeType == CONST_VALUE_NODE)
+                            size *= dim->semantic_value.const1->const_u.intval;
+                        else if(dim->nodeType == EXPR_NODE)
+                            size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
+
+                        dim = dim->rightSibling;
+                    }
+                    total += size*4
+                    break;
+                case WITH_INIT_ID:
+                    total += 4;
+                    break;
+                default:
+                    break;
+            }
+            id = id->rightSibling;
+        }
+        decl = decl->rightSibling;
+    }
+    ARoffset -= total;
     return;
 }
 
@@ -309,6 +347,42 @@ void emitRetStmt (FILE *F, AST_NODE *retNode) {
 
 void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
     _DBG(F, declarationNode, "declare Var ...");
+    AST_NODE *id = declarationNode->child->rightSibling;    
+    
+    while(id != NULL) {
+        switch(id->semantic_value.identifierSemanticValue.kind) {
+            case NORMAL_ID:
+                fprintf(F, "sub     $sp, $sp, 4");
+                break;
+            case ARRAY_ID:
+                AST_NODE *dim = id->child;
+                int size = 1;
+                while(dim != NULL) {
+                    if(dim->nodeType == CONST_VALUE_NODE)
+                        size *= dim->semantic_value.const1->const_u.intval;
+                    else if(dim->nodeType == EXPR_NODE)
+                        size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
+
+                    dim = dim->rightSibling;
+                }
+                fprintf(F, "sub     $sp, $sp, %d", size*4);
+                break;
+            case WITH_INIT_ID:
+                if(id->dataType == FLOAT_TYPE && id->child->nodeType == CONST_VALUE_NODE)
+                    fprintf(F, "s.s     %f, ($sp)\n", id->child->semantic_value.const1->const_u.fval);
+                else if(id->dataType == FLOAT_TYPE && id->child->nodeType == EXPR_NODE)
+                    fprintf(F, "s.s     %f, ($sp)\n", id->child->semantic_value.exprSemanticValue.constEvalValue.fValue);
+                else if(id->child->nodeType == CONST_VALUE_NODE)
+                    fprintf(F, "sw      %d, ($sp)\n", id->child->semantic_value.const1->const_u.intval);
+                else
+                    fprintf(F, "sw      %d, ($sp)\n", id->child->semantic_value.exprSemanticValue.constEvalValue.iValue);
+                fprintf(F, "sub     $sp, $sp, 4");
+                break;
+            default:
+                break;
+        }
+        id = id->rightSibling;
+    }
     return;
 }
 
@@ -322,6 +396,8 @@ void emitRead (FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "read( ... )");
     fprintf(F, "li    $v0, 5\n");
     fprintf(F, "syscall\n");
+    fprintf(F, "sub   $sp, $sp, 4\n");
+    fprintf(F, "sw    $v0, ($sp)\n");
     return;
 }
 
@@ -335,6 +411,8 @@ void emitFread (FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "fread( ... )");
     fprintf(F, "li    $v0, 6\n");
     fprintf(F, "syscall\n");
+    fprintf(F, "sub   $sp, $sp, 4\n");
+    fprintf(F, "s.s   $f0, ($sp)\n");
     return;
 }
 
@@ -397,26 +475,27 @@ void emitWrite (FILE *F, AST_NODE *functionCallNode) {
     return;
 }
 
-void emitBeforeFunc (FILE *F, AST_NODE *functionCallNode) {
-    _DBG(F, functionCallNode, "before f( ... )");
+void emitBeforeFunc (FILE *F, AST_NODE *funcDeclNode) {
+    _DBG(F, funcDeclNode, "before f( ... )");
     // XXX xatier: .text, function name, prologue sequence here
-    char *functionName = "";
+    char *functionName = funcDeclNode->child->rightSibling->semantic_value.identifierSemanticValue.identifierName;
     fprintf(F, ".text\n");
-    fprintf(F, "%s\n", functionName);
+    //fprintf(F, "%s\n", functionName);
     fprintf(F, "# prologue sequence\n");
     // XXX blah blah blah ...
 
     fprintf(F, "_begin_%s:\n", functionName);
+
     return;
 }
 
-void emitAfterFunc(FILE *F, AST_NODE *functionCallNode) {
+void emitAfterFunc(FILE *F, AST_NODE *funcDeclNode) {
     _DBG(F, functionCallNode, "after f( ... )");
-    char *functionName;
+    char *functionName = funcDeclNode->child->rightSibling->semantic_value.identifierSemanticValue.identifierName;
     fprintf(F, "# epilogue sequence\n");
     fprintf(F, "_end_%s:\n", functionName);
     // _framesize_of_xxx_function:
-    fprintf(F, ".data\n");
+    //fprintf(F, ".data\n");
     //_framesize_of_main: .word 36
     //
     //
@@ -707,10 +786,10 @@ void walkTree (FILE *F, AST_NODE *node) {
                 }
                 else if (left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
                     enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
+                    ARoffset = 0;
                     emitBeforeFunc(F, left);
                     walkTree(F, left->child);
                     emitAfterFunc(F, left);
-                    ARoffset = 0;
                 }
                 break;
 
