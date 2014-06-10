@@ -85,7 +85,6 @@ void emitPreface (FILE *F, AST_NODE *prog) {
         decl = decl->rightSibling;
     }
 
-    fprintf(F, ".text\n");
     return;
 }
 
@@ -292,14 +291,15 @@ void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
     _DBG(F, assignmentNode, "assign = ");
     SymbolTableEntry *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
 
-    fprintf(F, "sub     $sp, $sp, 4\n");
+    emitArithmeticStmt(F, assignmentNode->child->rightSibling);
     fprintf(F, "sw      $t0, ($sp)\n");
-
+    fprintf(F, "sub     $sp, $sp, 4\n");
+    //NEED type coercion
     fprintf(F, "lw      $t0, 8($sp)\n");
     fprintf(F, "sw      $t0, %d($fp)\n", entry->offset);
 
-    fprintf(F, "lw      $t0, ($sp)\n");
     fprintf(F, "addiu   $sp, $sp, 4\n");
+    fprintf(F, "lw      $t0, ($sp)\n");
 
     return;
 }
@@ -311,15 +311,17 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     char ifLabel[10];
     sprintf(ifLabel, "ifl_%5d", rand());
 
-    fprintf(F, "sub     $sp, $sp, 4\n");
+    emitArithmeticStmt(F, ifNode->child);
     fprintf(F, "sw      $t0, ($sp)\n");
+    fprintf(F, "sub     $sp, $sp, 4\n");
 
     // xatier: 4($sp) == the condition
-    fprintf(F, "lw      $t0, 4($sp)\n");
+    // jyhsu: i change the push/pop mechanics, so 8 now
+    fprintf(F, "lw      $t0, 8($sp)\n");
     fprintf(F, "beqz    $t0, %s_else\n", ifLabel);
 
-    fprintf(F, "lw      $t0, ($sp)\n");
     fprintf(F, "addiu   $sp, $sp, 4\n");
+    fprintf(F, "lw      $t0, ($sp)\n");
 
     _DBG(F, ifBlock, "block {");
     walkTree(F, ifBlock->child);
@@ -344,6 +346,15 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
 
 void emitWhileStmt (FILE *F, AST_NODE *whileNode) {
     _DBG(F, whileNode, "while ( ... )");
+    int l = label++;
+    fprintf(F, "lwhile%d:\n", l);
+    emitArithmeticStmt(F, whileNode->child);
+    fprintf(F, "lw      $t0, ($sp)\n");
+    fprintf(F, "add     $sp, $sp, 4\n");
+    fprintf(F, "beqz    $t0, lexit%d\n", l);
+    walkTree(F, whileNode->child->rightSibling);
+    fprintf(F, "j       lwhile%d\n", l);
+    fprintf(F, "lexit%d:\n", l);
     return;
 }
 
@@ -352,8 +363,25 @@ void emitForStmt (FILE *F, AST_NODE *forNode) {
     return;
 }
 
+char *genReturnJumpLabel(AST_NODE *retNode) {
+    AST_NODE *parent = retNode->parent;
+    while(parent != NULL) {
+        if(parent->nodeType == DECLARATION_NODE)
+            if(parent->semantic_value.declSemanticValue.kind == FUNCTION_DECL)
+                break;
+        parent = parent->parent;
+    }
+    return parent->child->rightSibling->semantic_value.identifierSemanticValue.identifierName;
+}
+
 void emitRetStmt (FILE *F, AST_NODE *retNode) {
     _DBG(F, retNode, "return ... ;");
+    if(retNode->child != NULL) {
+        emitArithmeticStmt(F, retNode->child);
+        fprintf(F, "lw      $v0, 4($sp)\n");
+        fprintf(F, "add     $sp, $sp, 4\n");
+        fprintf(F, "j       _end_%s\n", genReturnJumpLabel(retNode));
+    }
     return;
 }
 
@@ -366,7 +394,7 @@ void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
         int size = 1;
         switch (id->semantic_value.identifierSemanticValue.kind) {
             case NORMAL_ID:
-                fprintf(F, "sub     $sp, $sp, 4");
+                fprintf(F, "sub     $sp, $sp, 4\n");
                 break;
 
             case ARRAY_ID:
@@ -379,7 +407,7 @@ void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
 
                     dim = dim->rightSibling;
                 }
-                fprintf(F, "sub     $sp, $sp, %d", size*4);
+                fprintf(F, "sub     $sp, $sp, %d\n", size*4);
                 break;
 
             case WITH_INIT_ID:
@@ -391,7 +419,7 @@ void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
                     fprintf(F, "sw      %d, ($sp)\n", id->child->semantic_value.const1->const_u.intval);
                 else
                     fprintf(F, "sw      %d, ($sp)\n", id->child->semantic_value.exprSemanticValue.constEvalValue.iValue);
-                fprintf(F, "sub     $sp, $sp, 4");
+                fprintf(F, "sub     $sp, $sp, 4\n");
                 break;
 
             default:
@@ -495,9 +523,13 @@ void emitBeforeFunc (FILE *F, AST_NODE *funcDeclNode) {
     // XXX xatier: .text, function name, prologue sequence here
     char *functionName = funcDeclNode->child->rightSibling->semantic_value.identifierSemanticValue.identifierName;
     fprintf(F, ".text\n");
-    //fprintf(F, "%s\n", functionName);
+    fprintf(F, "%s:\n", functionName);
     fprintf(F, "# prologue sequence\n");
     // XXX blah blah blah ...
+    fprintf(F, "sw      $ra, 0($sp)\n");
+    fprintf(F, "sw      $fp, -4($sp)\n");
+    fprintf(F, "add     $fp, $sp, -4\n");
+    fprintf(F, "add     $sp, $sp, -8\n");
 
     fprintf(F, "_begin_%s:\n", functionName);
 
@@ -509,6 +541,15 @@ void emitAfterFunc(FILE *F, AST_NODE *funcDeclNode) {
     char *functionName = funcDeclNode->child->rightSibling->semantic_value.identifierSemanticValue.identifierName;
     fprintf(F, "# epilogue sequence\n");
     fprintf(F, "_end_%s:\n", functionName);
+    fprintf(F, "lw      $ra, 4($fp)\n");
+    fprintf(F, "add     $sp, $fp, 4\n");
+    fprintf(F, "lw      $fp, 0($fp)\n");
+    if(strcmp(functionName, "main") == 0) {
+        fprintf(F, "li      $v0, 10\n");
+        fprintf(F, "syscall\n");
+    }
+    else
+        fprintf(F, "jr      $ra\n");
     // _framesize_of_xxx_function:
     //fprintf(F, ".data\n");
     //_framesize_of_main: .word 36
@@ -525,6 +566,14 @@ void emitAfterFunc(FILE *F, AST_NODE *funcDeclNode) {
 
 void emitFunc (FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "in f( ... )");
+    char *functionName = functionCallNode->child->semantic_value.identifierSemanticValue.identifierName;
+    SymbolTableEntry *entry = functionCallNode->child->symboTableEntry;
+
+    fprintf(F, "jal     %s\n", functionName);
+    if(entry->attribute->attr.functionSignature->returnType != VOID_TYPE) {
+        fprintf(F, "sw      $v0, ($sp)\n");
+        fprintf(F, "sub     $sp, $sp, 4\n");
+    }
     return;
 }
 
@@ -533,6 +582,14 @@ void emitFunc (FILE *F, AST_NODE *functionCallNode) {
 void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
     _DBG(F, exprNode, "expr");
 
+
+    // jyhsu: make sure it is expr node
+    if(exprNode->nodeType == CONST_VALUE_NODE) {
+        
+    }
+    else if(exprNode->nodeType == IDENTIFIER_NODE) {
+
+    }
     // xatier: make sure they are binary operations
     if (exprNode->semantic_value.exprSemanticValue.kind == BINARY_OPERATION) {
         AST_NODE *leftOp = exprNode->child;
@@ -754,11 +811,11 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
 
                 case UNARY_OP_NEGATIVE:
-                    fprintf(F, "sub     $t0, $zero, $t0");
+                    fprintf(F, "sub     $t0, $zero, $t0\n");
                     break;
 
                 case UNARY_OP_LOGICAL_NEGATION:
-                    fprintf(F, "nor     $t0, $t0, $zero");
+                    fprintf(F, "nor     $t0, $t0, $zero\n");
                     break;
 
                 default:
@@ -773,7 +830,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
 
                 case UNARY_OP_NEGATIVE:
-                    fprintf(F, "neg.s   $f0, $f0");
+                    fprintf(F, "neg.s   $f0, $f0\n");
                     break;
 
                 case UNARY_OP_LOGICAL_NEGATION:
