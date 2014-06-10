@@ -405,6 +405,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
             // XXX: load leftOp and rightOp to $f0 and $f1
 
+            char eqLabel[10];
+            char neLabel[10];
             switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
                 case BINARY_OP_ADD:
                     fprintf(F, "add     $t0, $t0, $t1\n");
@@ -422,8 +424,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
                 case BINARY_OP_EQ:
                     // we need a unique lable for jump here
-                    char eqLabel[10];
-                    sprintf(eqLable, "eql_%5d", rand());
+                    sprintf(eqLabel, "eql_%5d", rand());
                     fprintf(F, "bne     $t0, $t1, %s\n", eqLabel);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "j       %sxx\r", eqLabel);
@@ -442,8 +443,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "xori    $t0, 1\n");
                 case BINARY_OP_NE:
                     // we need a unique lable for jump here
-                    char neLabel[10];
-                    sprintf(neLable, "nel_%5d", rand());
+                    sprintf(neLabel, "nel_%5d", rand());
                     fprintf(F, "beq     $t0, $t1, %s\n", neLabel);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "j       %sxx\r", neLabel);
