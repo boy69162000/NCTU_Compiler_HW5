@@ -36,24 +36,27 @@ void emitPreface (FILE *F, AST_NODE *prog) {
     AST_NODE *decl = prog->child;
 
     fprintf(F, ".data\n");
-    while(decl != NULL) {
-        if(decl->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
+    while (decl != NULL) {
+        if (decl->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
             AST_NODE *id = decl->child->rightSibling;
-            while(id != NULL) {
+
+            while (id != NULL) {
                 AST_NODE *dim = id->child;
                 int size = 1;
-                switch(id->semantic_value.identifierSemanticValue.kind) {
+
+                switch (id->semantic_value.identifierSemanticValue.kind) {
                     case NORMAL_ID:
-                        if(id->dataType == FLOAT_TYPE)
+                        if (id->dataType == FLOAT_TYPE)
                             fprintf(F, "_%s: .float 0.0\n", id->semantic_value.identifierSemanticValue.identifierName);
                         else
                             fprintf(F, "_%s: .word 0\n", id->semantic_value.identifierSemanticValue.identifierName);
                         break;
+
                     case ARRAY_ID:
-                        while(dim) {
-                            if(dim->nodeType == CONST_VALUE_NODE)
+                        while (dim) {
+                            if (dim->nodeType == CONST_VALUE_NODE)
                                 size *= dim->semantic_value.const1->const_u.intval;
-                            else if(dim->nodeType == EXPR_NODE)
+                            else if (dim->nodeType == EXPR_NODE)
                                 size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
 
                             dim = dim->rightSibling;
@@ -61,16 +64,18 @@ void emitPreface (FILE *F, AST_NODE *prog) {
 
                         fprintf(F, "_%s: .space %d\n", id->semantic_value.identifierSemanticValue.identifierName, size*4);
                         break;
+
                     case WITH_INIT_ID:
-                        if(id->dataType == FLOAT_TYPE && id->child->nodeType == CONST_VALUE_NODE)
+                        if (id->dataType == FLOAT_TYPE && id->child->nodeType == CONST_VALUE_NODE)
                             fprintf(F, "_%s: .float %f\n", id->semantic_value.identifierSemanticValue.identifierName, id->child->semantic_value.const1->const_u.fval);
-                        else if(id->dataType == FLOAT_TYPE && id->child->nodeType == EXPR_NODE)
+                        else if (id->dataType == FLOAT_TYPE && id->child->nodeType == EXPR_NODE)
                             fprintf(F, "_%s: .float %f\n", id->semantic_value.identifierSemanticValue.identifierName, id->child->semantic_value.exprSemanticValue.constEvalValue.fValue);
-                        else if(id->child->nodeType == CONST_VALUE_NODE)
+                        else if (id->child->nodeType == CONST_VALUE_NODE)
                             fprintf(F, "_%s: .word %d\n", id->semantic_value.identifierSemanticValue.identifierName, id->child->semantic_value.const1->const_u.intval);
                         else
                             fprintf(F, "_%s: .word %d\n", id->semantic_value.identifierSemanticValue.identifierName, id->child->semantic_value.exprSemanticValue.constEvalValue.iValue);
                         break;
+
                     default:
                         break;
                 }
@@ -79,6 +84,7 @@ void emitPreface (FILE *F, AST_NODE *prog) {
 
         decl = decl->rightSibling;
     }
+
     fprintf(F, ".text\n");
     return;
 }
@@ -236,42 +242,48 @@ void emitBeforeBlock (FILE *F, AST_NODE *blockNode) {
 void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
     _DBG(F, blockNode, "block }");
 
-    if(blockNode->child->nodeType != VARIABLE_DECL_LIST_NODE)
+    if (blockNode->child->nodeType != VARIABLE_DECL_LIST_NODE)
         return;
 
     AST_NODE *decl = blockNode->child->child;
     int total = 0;
-    while(decl != NULL) {
+    while (decl != NULL) {
         AST_NODE *id = decl->child->rightSibling;
 
-        while(id != NULL) {
-            switch(id->semantic_value.identifierSemanticValue.kind) {
+        while (id != NULL) {
+            switch (id->semantic_value.identifierSemanticValue.kind) {
                 case NORMAL_ID:
                     total += 4;
                     break;
+
                 case ARRAY_ID:
                     AST_NODE *dim = id->child;
                     int size = 1;
-                    while(dim != NULL) {
-                        if(dim->nodeType == CONST_VALUE_NODE)
+
+                    while (dim != NULL) {
+                        if (dim->nodeType == CONST_VALUE_NODE)
                             size *= dim->semantic_value.const1->const_u.intval;
-                        else if(dim->nodeType == EXPR_NODE)
+                        else if (dim->nodeType == EXPR_NODE)
                             size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
 
                         dim = dim->rightSibling;
                     }
                     total += size*4
                     break;
+
                 case WITH_INIT_ID:
                     total += 4;
                     break;
+
                 default:
                     break;
+
             }
             id = id->rightSibling;
         }
         decl = decl->rightSibling;
     }
+
     ARoffset -= total;
     return;
 }
@@ -302,7 +314,7 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     fprintf(F, "sub     $sp, $sp, 4\n");
     fprintf(F, "sw      $t0, ($sp)\n");
 
-    // xatier: 4($sp) == the condition?
+    // xatier: 4($sp) == the condition
     fprintf(F, "lw      $t0, 4($sp)\n");
     fprintf(F, "beqz    $t0, %s_else\n", ifLabel);
 
@@ -349,41 +361,44 @@ void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
     _DBG(F, declarationNode, "declare Var ...");
     AST_NODE *id = declarationNode->child->rightSibling;
 
-    while(id != NULL) {
-        switch(id->semantic_value.identifierSemanticValue.kind) {
+    while (id != NULL) {
+        switch (id->semantic_value.identifierSemanticValue.kind) {
             case NORMAL_ID:
                 fprintf(F, "sub     $sp, $sp, 4");
                 break;
+
             case ARRAY_ID:
                 AST_NODE *dim = id->child;
                 int size = 1;
-                while(dim != NULL) {
-                    if(dim->nodeType == CONST_VALUE_NODE)
+
+                while (dim != NULL) {
+                    if (dim->nodeType == CONST_VALUE_NODE)
                         size *= dim->semantic_value.const1->const_u.intval;
-                    else if(dim->nodeType == EXPR_NODE)
+                    else if (dim->nodeType == EXPR_NODE)
                         size *= dim->semantic_value.exprSemanticValue.constEvalValue.iValue;
 
                     dim = dim->rightSibling;
                 }
                 fprintf(F, "sub     $sp, $sp, %d", size*4);
                 break;
+
             case WITH_INIT_ID:
-                if(id->dataType == FLOAT_TYPE && id->child->nodeType == CONST_VALUE_NODE)
+                if (id->dataType == FLOAT_TYPE && id->child->nodeType == CONST_VALUE_NODE)
                     fprintf(F, "s.s     %f, ($sp)\n", id->child->semantic_value.const1->const_u.fval);
-                else if(id->dataType == FLOAT_TYPE && id->child->nodeType == EXPR_NODE)
+                else if (id->dataType == FLOAT_TYPE && id->child->nodeType == EXPR_NODE)
                     fprintf(F, "s.s     %f, ($sp)\n", id->child->semantic_value.exprSemanticValue.constEvalValue.fValue);
-                else if(id->child->nodeType == CONST_VALUE_NODE)
+                else if (id->child->nodeType == CONST_VALUE_NODE)
                     fprintf(F, "sw      %d, ($sp)\n", id->child->semantic_value.const1->const_u.intval);
                 else
                     fprintf(F, "sw      %d, ($sp)\n", id->child->semantic_value.exprSemanticValue.constEvalValue.iValue);
                 fprintf(F, "sub     $sp, $sp, 4");
                 break;
+
             default:
                 break;
         }
         id = id->rightSibling;
     }
-    return;
 }
 
 // xatier: int read(void);
