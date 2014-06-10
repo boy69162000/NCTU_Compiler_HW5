@@ -235,13 +235,73 @@ void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
 
 void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
     _DBG(F, assignmentNode, "assign = ");
+    AST_NODE *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
+
+    fprintf(F, "sub     $sp, $sp, 4\n");
+    fprintf(F, "sw      $t0, ($sp)\n");
+
+    fprintf(F, "lw      $t0, 8($sp)\n");
+    fprintf(F, "sw      $t0, $d($fp)\n", offset);
+
+    fprintf(F, "lw      $t0, ($sp)\n");
+    fprintf(F, "addiu   $sp, $sp, 4\n");
+
     return;
 }
 
 void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     _DBG(F, ifNode, "if ( ... )");
+    /*AST_NODE *ifBlock = ifNode->child->rightSibling;
+    int l = label++;
+
+    fprintf(F, "sub     $sp, $sp, 4\n");
+    fprintf(F, "sw      $t0, ($sp)\n");
+
+    fprintf(F, "lw      $t0, 4($sp)\n");
+    fprintf(F, "beqz    $t0, lelse%d\n", l);
+
+    fprintf(F, "lw      $t0, ($sp)\n");
+    fprintf(F, "addiu   $sp, $sp, 4\n");
+
+    _DBG(F, ifBlock, "block {");
+    walkTree(F, ifBlock->child);
+    _DBG(F, ifBlock, "block }");
+
+    if(ifBlock->rightSibling->nodeType != NUL_NODE) {
+        fprintf("j       lexit%d\n", l);
+        emitElseIfStmt(F, ifBlock->rightSibling, l);
+        fprintf("lexit%d:\n", l);
+    }*/
+    
+    
     return;
 }
+
+/*void emitElseIfStmt(FILE *F, AST_NODE *elseIfNode, int lexit) {
+    _DBG(F, esleIfNode, "else if ( ... )");
+    AST_NODE *node = elseIfNode;
+    int l;
+
+    while(node->nodeType != BLOCK_NODE) {
+        l = label++;
+        fprintf(F, "sub     $sp, $sp, 4\n");
+        fprintf(F, "sw      $t0, ($sp)\n");
+
+        fprintf(F, "lw      $t0, 4($sp)\n");
+        fprintf(F, "beqz    $t0, lelse%d\n", l);
+
+        fprintf(F, "lw      $t0, ($sp)\n");
+        fprintf(F, "addiu   $sp, $sp, 4\n");
+
+        _DBG(F, node->child->rightSibling, "block {");
+        walkTree(F, node->child->rightSibling->child);
+        _DBG(F, node->child->rightSibling, "block }");
+
+        node = node->child->rightSibling->rightSibling;
+    }
+
+    return;
+}*/
 
 void emitWhileStmt (FILE *F, AST_NODE *whileNode) {
     _DBG(F, whileNode, "while ( ... )");
@@ -510,7 +570,6 @@ void walkTree(FILE *F, AST_NODE *node) {
     // xaiter: what does left mean?
     // jyhsu : leftmost sibling
     AST_NODE *left = node;
-    int ofst = offset;   // xatier: table offset?
 
     // this is a DFS? // actually not quite so
 
@@ -627,7 +686,7 @@ void codeGen(AST_NODE *prog) {
         exit(1);
     }
 
-    emitPreface(output, prog);
+    //emitPreface(output, prog);
     // XXX xaiter: walk the AST
     walkTree(output, prog);
     // end of walk the AST
