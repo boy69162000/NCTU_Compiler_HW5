@@ -323,8 +323,8 @@ void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
         exit(1);
     }
 
-    fprintf(F, "addiu   $sp, $sp, 4\n");
-    fprintf(F, "lw      $t0, ($sp)\n");
+    fprintf(F, "lw      $t0, 4($sp)\n");
+    fprintf(F, "addiu   $sp, $sp, 8\n");
 
     return;
 }
@@ -345,8 +345,8 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     fprintf(F, "lw      $t0, 8($sp)\n");
     fprintf(F, "beqz    $t0, %s_else\n", ifLabel);
 
-    fprintf(F, "addiu   $sp, $sp, 4\n");
-    fprintf(F, "lw      $t0, ($sp)\n");
+    fprintf(F, "lw      $t0, 4($sp)\n");
+    fprintf(F, "addiu   $sp, $sp, 8\n");
 
     _DBG(F, ifBlock, "block {");
     walkTree(F, ifBlock->child);
@@ -610,10 +610,33 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
     // jyhsu: make sure it is expr node
     if(exprNode->nodeType == CONST_VALUE_NODE) {
+        if(exprNode->dataType == FLOAT_TYPE)
+            fprintf(F, "s.s     %f, ($sp)\n", exprNode->semantic_value.const1->const_u.fval);
+        else
+            fprintf(F, "sw      %d, ($sp)\n", exprNode->semantic_value.const1->const_u.intval);
 
+        fprintf(F, "sub     $sp, $sp, 4\n");
+        return;
     }
     else if(exprNode->nodeType == IDENTIFIER_NODE) {
+        if(exprNode->dataType == FLOAT_TYPE) {
+            if(exprNode->semantic_value.identifierSemanticValue.symbolTableEntry->nestingLevel == 0)
+                fprintf(F, "l.s     $f0, _%s\n", exprNode->semantic_value.identifierSemanticValue.identifierName);
+            else
+                fprintf(F, "l.s     $f0, %d($fp)\n", exprNode->semantic_value.identifierSemanticValue.symbolTableEntry->offset);
 
+            fprintf(F, "s.s     $f0, ($sp)\n");
+        }
+        else {
+            if(exprNode->semantic_value.identifierSemanticValue.symbolTableEntry->nestingLevel == 0)
+                fprintf(F, "lw      $t0, _%s\n", exprNode->semantic_value.identifierSemanticValue.identifierName);
+            else
+                fprintf(F, "lw      $t0, %d($fp)\n", exprNode->semantic_value.identifierSemanticValue.symbolTableEntry->offset);
+
+            fprintf(F, "sw      $t0, ($sp)\n");
+        }
+        fprintf(F, "sub     $sp, $sp, 4\n");
+        return;
     }
     // xatier: make sure they are binary operations
     if (exprNode->semantic_value.exprSemanticValue.kind == BINARY_OPERATION) {
@@ -628,8 +651,9 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             //     after that, store the result into $t0
 
             // XXX: load leftOp and rightOp to $f0 and $f1
-            fprintf(F, "lw      $t0, 0($sp)\n");
-            fprintf(F, "lw      $t1, 4($sp)\n");
+            fprintf(F, "lw      $t0, 4($sp)\n");
+            fprintf(F, "lw      $t1, 8($sp)\n");
+            fprintf(F, "add     $sp, $sp, 8\n");
 
             // we need a unique lable for jump here
             char eqLabel[10];
@@ -707,29 +731,31 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
             }
 
-
+            //push stack frame
+            fprintf(F, "sw      $t0, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
         }
         // instruction operands are float
         else if (leftOp->dataType == FLOAT_TYPE || rightOp->dataType == FLOAT_TYPE) {
             // xatier: handle int -> float conversion
             // some says that we need a nop stall here to avoid hazard
             if (leftOp->dataType == INT_TYPE) {
-                fprintf(F, "lw      $t0, ($sp)\n");
+                fprintf(F, "lw      $t0, 4($sp)\n");
                 fprintf(F, "mtc1    $t0, $f0\n");
                 fprintf(F, "nop");
-                fprintf(F, "swc1    $f0, ($sp)\n");
+                fprintf(F, "swc1    $f0, 4($sp)\n");
             }
             if (rightOp->dataType == INT_TYPE) {
-                fprintf(F, "lw      $t1, ($sp)\n");
+                fprintf(F, "lw      $t1, 4($sp)\n");
                 fprintf(F, "mtc1    $t1, $f1\n");
                 fprintf(F, "nop");
-                fprintf(F, "swc1    $f1, ($sp)\n");
+                fprintf(F, "swc1    $f1, 4($sp)\n");
             }
 
             // load leftOp and rightOp to $f0 and $f1
-            fprintf(F, "lwc1    $f0, ($sp)\n");
-            fprintf(F, "lwc1    $f1, 4($sp)\n");
-
+            fprintf(F, "lwc1    $f0, 4($sp)\n");
+            fprintf(F, "lwc1    $f1, 8($sp)\n");
+            fprintf(F, "add     $sp, $sp, 8\n");
 
             // for floating point comparision
             char fcmpl[10];
@@ -820,6 +846,9 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "# undefined operation occurred\n");
                     exit(1);
             }
+            //push stack frame
+            fprintf(F, "s.s     $f0, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
         }
         else {
             fprintf(F, "# undefined operation occurred\n");
@@ -829,7 +858,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
     else if (exprNode->semantic_value.exprSemanticValue.kind == UNARY_OPERATION) {
         AST_NODE *operand = exprNode->child;
         if (operand->dataType == INT_TYPE) {
-            fprintf(F, "lw      $t0, 0($sp)\n");
+            fprintf(F, "lw      $t0, 4($sp)\n");
+            fprintf(F, "add     $sp, $sp, 4\n");
             switch (exprNode->semantic_value.exprSemanticValue.op.unaryOp) {
                 case UNARY_OP_POSITIVE:
                     // don't need to to anything
@@ -847,8 +877,13 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     printf("Unhandled case in void evaluateExprValue(AST_NODE* exprNode)\n");
                     break;
             }
+            //push
+            fprintf(F, "sw      $t0, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
         }
         else if (operand->dataType == FLOAT_TYPE) {
+            fprintf(F, "l.s     $f0, 4($sp)\n");
+            fprintf(F, "add     $sp, $sp, 4\n");
             switch (exprNode->semantic_value.exprSemanticValue.op.unaryOp) {
                 case UNARY_OP_POSITIVE:
                     // skip
@@ -866,7 +901,9 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     printf("Unhandled case in void evaluateExprValue(AST_NODE* exprNode)\n");
                     break;
             }
-
+            //push
+            fprintf(F, "s.s     $f0, ($sp)\n");
+            fprintf(F, "sub     $sp, $sp, 4\n");
         }
         else {
             fprintf(F, "# undefined operation occurred\n");
@@ -929,7 +966,7 @@ void walkTree (FILE *F, AST_NODE *node) {
                 }
                 else if (left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
                     enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
-                    ARoffset = 0;
+                    ARoffset = -4;
                     emitBeforeFunc(F, left);
                     walkTree(F, left->child);
                     emitAfterFunc(F, left);
