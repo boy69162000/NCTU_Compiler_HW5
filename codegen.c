@@ -347,8 +347,8 @@ void emitRetStmt (FILE *F, AST_NODE *retNode) {
 
 void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
     _DBG(F, declarationNode, "declare Var ...");
-    AST_NODE *id = declarationNode->child->rightSibling;    
-    
+    AST_NODE *id = declarationNode->child->rightSibling;
+
     while(id != NULL) {
         switch(id->semantic_value.identifierSemanticValue.kind) {
             case NORMAL_ID:
@@ -613,7 +613,19 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
         }
         // instruction operands are float
-        else if (leftOp->dataType == INT_TYPE && rightOp->dataType == FLOAT_TYPE) {
+        else if (leftOp->dataType == FLOAT_TYPE || rightOp->dataType == FLOAT_TYPE) {
+            // xatier: handle int -> float conversion
+            if (leftOp->dataType == INT_TYPE) {
+                fprintf(F, "lw      $t0, ($sp)\n");
+                fprintf(F, "mtc1    $t0, $f0\n");
+                fprintf(F, "swc1    $f0, ($sp)\n");
+            }
+            if (rightOp->dataType == INT_TYPE) {
+                fprintf(F, "lw      $t1, ($sp)\n");
+                fprintf(F, "mtc1    $t1, $f1\n");
+                fprintf(F, "swc1    $f1, ($sp)\n");
+            }
+
             // push $f0, $f1, $f2
             //fprintf(F, "sub     $sp, $sp, 4\n");
             //fprintf(F, "swc1    $f0, ($sp)\n");
