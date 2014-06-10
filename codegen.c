@@ -615,28 +615,28 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
         // instruction operands are float
         else if (leftOp->dataType == FLOAT_TYPE || rightOp->dataType == FLOAT_TYPE) {
             // xatier: handle int -> float conversion
+            // some says that we need a nop stall here to avoid hazard
             if (leftOp->dataType == INT_TYPE) {
                 fprintf(F, "lw      $t0, ($sp)\n");
                 fprintf(F, "mtc1    $t0, $f0\n");
+                fprintf(F, "nop");
                 fprintf(F, "swc1    $f0, ($sp)\n");
             }
             if (rightOp->dataType == INT_TYPE) {
                 fprintf(F, "lw      $t1, ($sp)\n");
                 fprintf(F, "mtc1    $t1, $f1\n");
+                fprintf(F, "nop");
                 fprintf(F, "swc1    $f1, ($sp)\n");
             }
-
-            // push $f0, $f1, $f2
-            //fprintf(F, "sub     $sp, $sp, 4\n");
-            //fprintf(F, "swc1    $f0, ($sp)\n");
-            //fprintf(F, "sub     $sp, $sp, 4\n");
-            //fprintf(F, "swc1    $f1, ($sp)\n");
-            //fprintf(F, "sub     $sp, $sp, 4\n");
-            //fprintf(F, "swc1    $f2, ($sp)\n");
 
             // load leftOp and rightOp to $f0 and $f1
             fprintf(F, "lwc1    $f0, ($sp)\n");
             fprintf(F, "lwc1    $f1, 4($sp)\n");
+
+
+            // for floating point comparision
+            char fcmpl[10];
+            sprintf(fcmpl, "fcmpl%s", rand());
 
             switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
                 case BINARY_OP_ADD:
@@ -655,40 +655,74 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "div.s   $f0, $f0, $f1\n");
                     break;
 
+                // xatier: for floating point comparison, set $t0 = true ? 1 : 0
                 case BINARY_OP_EQ:
                     fprintf(F, "c.eq.s   $f0, $f1\n");
+                    fprintf(F, "bc1t     %s_t\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 0\n");
+                    fprintf(F, "j       %s_exit\n", fcmpl);
+                    fprintf(F, "%s_t:\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 1\n");
+                    fprintf(F, "%s_exit:\n", fcmpl);
                     break;
 
                 case BINARY_OP_GE:
                     // xatier: ge = not lt
                     fprintf(F, "c.lt.s   $f1, $f0\n");
+                    fprintf(F, "bc1t     %s_t\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 0\n");
+                    fprintf(F, "j       %s_exit\n", fcmpl);
+                    fprintf(F, "%s_t:\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 1\n");
+                    fprintf(F, "%s_exit:\n", fcmpl);
                     break;
 
                 case BINARY_OP_LE:
                     fprintf(F, "c.le.s   $f0, $f1\n");
+                    fprintf(F, "bc1t     %s_t\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 0\n");
+                    fprintf(F, "j       %s_exit\n", fcmpl);
+                    fprintf(F, "%s_t:\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 1\n");
+                    fprintf(F, "%s_exit:\n", fcmpl);
                     break;
 
                 case BINARY_OP_NE:
+                    // xatier: note, bd1f
                     fprintf(F, "c.eq.s   $f0, $f1\n");
+                    fprintf(F, "bc1f     %s_f\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 0\n");
+                    fprintf(F, "j       %s_exit\n", fcmpl);
+                    fprintf(F, "%s_f:\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 1\n");
+                    fprintf(F, "%s_exit:\n", fcmpl);
                     break;
 
                 case BINARY_OP_GT:
                     // xatier: gt = not le
                     fprintf(F, "c.le.s   $f1, $f0\n");
+                    fprintf(F, "bc1t     %s_t\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 0\n");
+                    fprintf(F, "j       %s_exit\n", fcmpl);
+                    fprintf(F, "%s_t:\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 1\n");
+                    fprintf(F, "%s_exit:\n", fcmpl);
                     break;
 
                 case BINARY_OP_LT:
                     fprintf(F, "c.lt.s   $f0, $f1\n");
+                    fprintf(F, "bc1t     %s_t\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 0\n");
+                    fprintf(F, "j       %s_exit\n", fcmpl);
+                    fprintf(F, "%s_t:\n", fcmpl);
+                    fprintf(F, "addi    $t0, $zero, 1\n");
+                    fprintf(F, "%s_exit:\n", fcmpl);
                     break;
-            }
 
-            // pop $f0, $f1, $f2
-            //fprintf(F, "lwc1    $f2, ($sp)\n");
-            //fprintf(F, "addiu   $sp, $sp, 4\n");
-            //fprintf(F, "lwc1    $f1, ($sp)\n");
-            //fprintf(F, "addiu   $sp, $sp, 4\n");
-            //fprintf(F, "lwc1    $f0, ($sp)\n");
-            //fprintf(F, "addiu   $sp, $sp, 4\n");
+                default:
+                    fprintf(F, "# undefined operation occurred\n");
+                    exit(1);
+            }
         }
         else {
             fprintf(F, "# undefined operation occurred\n");
