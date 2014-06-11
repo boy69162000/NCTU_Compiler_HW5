@@ -516,10 +516,10 @@ void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
 //     stored in $v0
 void emitRead (FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "read( ... )");
-    fprintf(F, "li    $v0, 5\n");
+    fprintf(F, "li      $v0, 5\n");
     fprintf(F, "syscall\n");
-    fprintf(F, "sw    $v0, ($sp)\n");
-    fprintf(F, "sub   $sp, $sp, 4\n");
+    fprintf(F, "sw      $v0, ($sp)\n");
+    fprintf(F, "sub     $sp, $sp, 4\n");
     return;
 }
 
@@ -531,10 +531,10 @@ void emitRead (FILE *F, AST_NODE *functionCallNode) {
 //     stored in $f0
 void emitFread (FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "fread( ... )");
-    fprintf(F, "li    $v0, 6\n");
+    fprintf(F, "li      $v0, 6\n");
     fprintf(F, "syscall\n");
-    fprintf(F, "s.s   $f0, ($sp)\n");
-    fprintf(F, "sub   $sp, $sp, 4\n");
+    fprintf(F, "s.s     $f0, ($sp)\n");
+    fprintf(F, "sub     $sp, $sp, 4\n");
     return;
 }
 
