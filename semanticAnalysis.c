@@ -1259,7 +1259,7 @@ void declareFunction (AST_NODE *declarationNode) {
 
     int enterFunctionNameToSymbolTable = 0;
     if (!errorOccur) {
-        enterSymbol(functionNameID->semantic_value.identifierSemanticValue.identifierName, attribute);
+        functionNameID->semantic_value.identifierSemanticValue.symbolTableEntry = enterSymbol(functionNameID->semantic_value.identifierSemanticValue.identifierName, attribute);
         enterFunctionNameToSymbolTable = 1;
     }
 

@@ -290,21 +290,24 @@ void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
         decl = decl->rightSibling;
     }
 
-    ARoffset -= total;
+    ARoffset += total;
     return;
 }
 
 void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
     _DBG(F, assignmentNode, "assign = ");
-    SymbolTableEntry *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
-
+    //SymbolTableEntry *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
+    SymbolTableEntry *entry = assignmentNode->child->semantic_value.identifierSemanticValue.symbolTableEntry;
     emitArithmeticStmt(F, assignmentNode->child->rightSibling);
     fprintf(F, "sw      $t0, ($sp)\n");
     fprintf(F, "sub     $sp, $sp, 4\n");
 
     if (assignmentNode->child->dataType == INT_TYPE) {
         fprintf(F, "lw      $t0, 8($sp)\n");
-        fprintf(F, "sw      $t0, %d($fp)\n", entry->offset);
+        if(entry->nestingLevel == 0)
+            fprintf(F, "sw      $t0, _%s\n", assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
+        else
+            fprintf(F, "sw      $t0, %d($fp)\n", entry->offset);
     }
     else if (assignmentNode->child->dataType == FLOAT_TYPE) {
         if (assignmentNode->child->rightSibling->dataType == INT_TYPE) {
@@ -312,12 +315,18 @@ void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
             fprintf(F, "lw      $t0, 8($sp)\n");
             fprintf(F, "mtc1    $t0, $f0\n");
             fprintf(F, "nop");
-            fprintf(F, "swc1    $f0, %d($fp)\n", entry->offset);
+            if(entry->nestingLevel == 0)
+                fprintf(F, "swc1    $f0, _%s\n", assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
+            else
+                fprintf(F, "swc1    $f0, %d($fp)\n", entry->offset);
         }
         else if (assignmentNode->child->rightSibling->dataType == FLOAT_TYPE) {
             // assign float <- float
             fprintf(F, "lwc1    $f0, 8($sp)\n");
-            fprintf(F, "swc1    $f0, %d($fp)\n", entry->offset);
+            if(entry->nestingLevel == 0)
+                fprintf(F, "swc1    $f0, _%s\n", assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
+            else
+                fprintf(F, "swc1    $f0, %d($fp)\n", entry->offset);
 
         }
         else {
@@ -447,14 +456,22 @@ void emitVarDecl (FILE *F, AST_NODE *declarationNode) {
                 break;
 
             case WITH_INIT_ID:
-                if (id->dataType == FLOAT_TYPE && id->child->nodeType == CONST_VALUE_NODE)
-                    fprintf(F, "s.s     %f, ($sp)\n", id->child->semantic_value.const1->const_u.fval);
-                else if (id->dataType == FLOAT_TYPE && id->child->nodeType == EXPR_NODE)
-                    fprintf(F, "s.s     %f, ($sp)\n", id->child->semantic_value.exprSemanticValue.constEvalValue.fValue);
-                else if (id->child->nodeType == CONST_VALUE_NODE)
-                    fprintf(F, "sw      %d, ($sp)\n", id->child->semantic_value.const1->const_u.intval);
-                else
-                    fprintf(F, "sw      %d, ($sp)\n", id->child->semantic_value.exprSemanticValue.constEvalValue.iValue);
+                if (id->dataType == FLOAT_TYPE && id->child->nodeType == CONST_VALUE_NODE) {
+                    fprintf(F, "li.s    $f0, %f\n", id->child->semantic_value.const1->const_u.fval);
+                    fprintf(F, "s.s     $f0, ($sp)\n");
+                }
+                else if (id->dataType == FLOAT_TYPE && id->child->nodeType == EXPR_NODE) {
+                    fprintf(F, "li.s    $f0, %f\n", id->child->semantic_value.exprSemanticValue.constEvalValue.fValue);
+                    fprintf(F, "s.s     $f0, ($sp)\n");
+                }
+                else if (id->child->nodeType == CONST_VALUE_NODE) {
+                    fprintf(F, "li      $t0, %d\n", id->child->semantic_value.const1->const_u.intval);
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                }
+                else {
+                    fprintf(F, "li      $t0, %d\n", id->child->semantic_value.exprSemanticValue.constEvalValue.iValue);
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                }
                 fprintf(F, "sub     $sp, $sp, 4\n");
                 break;
 
@@ -523,18 +540,24 @@ void emitWrite (FILE *F, AST_NODE *functionCallNode) {
     AST_NODE *actualParameter = functionCallNode->child->rightSibling->child;
 
     // this is a buffer for parameter register
-    char *buf = "";
-    int paramtype;
+    // no need
+    int paramtype = actualParameter->dataType;
+    char label[10];
+    sprintf(label, "l_%5d", rand());
     switch (paramtype) {
         case INT_TYPE:
+            emitArithmeticStmt(F, actualParameter);
             fprintf(F, "li      $v0, 1\n");
-            fprintf(F, "la      $a0, %s\n", buf);
+            fprintf(F, "lw      $a0, 4($sp)\n");
+            fprintf(F, "add     $sp, $sp, 4\n");
             fprintf(F, "syscall\n");
             break;
 
         case FLOAT_TYPE:
+            emitArithmeticStmt(F, actualParameter);
             fprintf(F, "li      $v0, 2\n");
-            fprintf(F, "la      $f12, %s\n", buf);
+            fprintf(F, "l.s     $f12, 4($sp)\n");
+            fprintf(F, "add     $sp, $sp, 4\n");
             fprintf(F, "syscall\n");
             break;
 
@@ -542,8 +565,11 @@ void emitWrite (FILE *F, AST_NODE *functionCallNode) {
 
         case CONST_STRING_TYPE:
             fprintf(F, "li      $v0, 4\n");
-            fprintf(F, "la      $a0, %s\n", buf);
+            fprintf(F, "la      $a0, %s\n", label);
             fprintf(F, "syscall\n");
+            fprintf(F, ".data\n");
+            fprintf(F, "%s: .asciiz %s\n", label, actualParameter->semantic_value.const1->const_u.sc);
+            fprintf(F, ".text\n");
             break;
 
         default:
@@ -559,6 +585,8 @@ void emitBeforeFunc (FILE *F, AST_NODE *funcDeclNode) {
     // XXX xatier: .text, function name, prologue sequence here
     char *functionName = funcDeclNode->child->rightSibling->semantic_value.identifierSemanticValue.identifierName;
     fprintf(F, ".text\n");
+    if(strcmp(functionName, "main") == 0)
+        fprintf(F, ".globl main\n");
     fprintf(F, "%s:\n", functionName);
     fprintf(F, "# prologue sequence\n");
     // XXX blah blah blah ...
@@ -621,11 +649,14 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
     // jyhsu: make sure it is expr node
     if(exprNode->nodeType == CONST_VALUE_NODE) {
-        if(exprNode->dataType == FLOAT_TYPE)
-            fprintf(F, "s.s     %f, ($sp)\n", exprNode->semantic_value.const1->const_u.fval);
-        else
-            fprintf(F, "sw      %d, ($sp)\n", exprNode->semantic_value.const1->const_u.intval);
-
+        if(exprNode->dataType == FLOAT_TYPE) {
+            fprintf(F, "li.s    $f0, %f\n", exprNode->semantic_value.const1->const_u.fval);
+            fprintf(F, "s.s     $f0, ($sp)\n");
+        }
+        else {
+            fprintf(F, "li      $t0, %d\n", exprNode->semantic_value.const1->const_u.intval);
+            fprintf(F, "sw      $t0, ($sp)\n");
+        }
         fprintf(F, "sub     $sp, $sp, 4\n");
         return;
     }
@@ -934,6 +965,8 @@ void walkTree (FILE *F, AST_NODE *node) {
     // xaiter: what does left mean?
     // jyhsu : leftmost sibling
     AST_NODE *left = node;
+    if(ARoffset == 0)
+        printf("WTH\n");
 
     // this is a DFS? // actually not quite so
     while (left != NULL) {
@@ -993,6 +1026,10 @@ void walkTree (FILE *F, AST_NODE *node) {
                 closeScope();
                 emitAfterBlock(F, left);
                 break;
+            
+            case STMT_LIST_NODE: 
+                walkTree(F, left->child);
+                break;
 
             case STMT_NODE:
                 switch (left->semantic_value.stmtSemanticValue.kind) {
@@ -1036,7 +1073,6 @@ void walkTree (FILE *F, AST_NODE *node) {
                 walkTree(F, node->child);
                 break;
         }
-
         left = left->rightSibling;
     }
 
