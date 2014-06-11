@@ -3,6 +3,7 @@
 #include <string.h>
 #include "header.h"
 #include "symbolTable.h"
+
 int g_anyErrorOccur = 0;
 
 DATA_TYPE getBiggerType (DATA_TYPE dataType1, DATA_TYPE dataType2);
@@ -78,7 +79,7 @@ void printErrorMsgSpecial (AST_NODE *node1, char *name2, ErrorMsgKind errorMsgKi
             break;
 
         default:
-            printf("Unhandled case in void printErrorMsg(AST_NODE* node, ERROR_MSG_KIND* errorMsgKind)\n");
+            printf("Unhandled case in void printErrorMsg(AST_NODE *node, ERROR_MSG_KIND *errorMsgKind)\n");
             break;
     }
 }
@@ -291,7 +292,9 @@ void processTypeNode (AST_NODE *idNodeAsType) {
 
 void declareIdList (AST_NODE *declarationNode, SymbolAttributeKind isVariableOrTypeAttribute, int ignoreArrayFirstDimSize) {
     AST_NODE *typeNode = declarationNode->child;
+    AST_NODE *traverseIDList = typeNode->rightSibling;
     TypeDescriptor *typeDescriptorOfTypeNode = typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor;
+
     if ((isVariableOrTypeAttribute == VARIABLE_ATTRIBUTE) &&
        (typeDescriptorOfTypeNode->kind == SCALAR_TYPE_DESCRIPTOR) &&
        (typeDescriptorOfTypeNode->properties.dataType == VOID_TYPE)) {
@@ -300,8 +303,7 @@ void declareIdList (AST_NODE *declarationNode, SymbolAttributeKind isVariableOrT
         return;
     }
 
-    AST_NODE *traverseIDList = typeNode->rightSibling;
-    while (traverseIDList) {
+    while (traverseIDList != NULL) {
         if (declaredLocally(traverseIDList->semantic_value.identifierSemanticValue.identifierName)) {
             printErrorMsg(traverseIDList, SYMBOL_REDECLARE);
             traverseIDList->dataType = ERROR_TYPE;
@@ -407,21 +409,20 @@ void checkAssignOrExpr (AST_NODE *assignOrExprRelatedNode) {
 
 
 void checkWhileStmt (AST_NODE *whileNode) {
-    AST_NODE *boolExpression = whileNode->child;
-    checkAssignOrExpr(boolExpression);
-    AST_NODE *bodyNode = boolExpression->rightSibling;
-    processStmtNode(bodyNode);
+    processExprNode(whileNode->child);
+    processBlockNode(whileNode->child->rightSibling);
 }
 
 
 void checkForStmt (AST_NODE *forNode) {
-    AST_NODE *initExpression = forNode->child;
+    AST_NODE *initExpression      = forNode->child;
+    AST_NODE *conditionExpression = forNode->child->rightSibling;
+    AST_NODE *loopExpression      = forNode->child->rightSibling->rightSibling;
+    AST_NODE *bodyNode            = forNode->child->rightSibling->rightSibling->rightSibling;
+
     processGeneralNode(initExpression);
-    AST_NODE *conditionExpression = initExpression->rightSibling;
     processGeneralNode(conditionExpression);
-    AST_NODE *loopExpression = conditionExpression->rightSibling;
     processGeneralNode(loopExpression);
-    AST_NODE *bodyNode = loopExpression->rightSibling;
     processStmtNode(bodyNode);
 }
 
@@ -429,12 +430,17 @@ void checkForStmt (AST_NODE *forNode) {
 void checkAssignmentStmt (AST_NODE *assignmentNode ) {
     AST_NODE *leftOp = assignmentNode->child;
     AST_NODE *rightOp = leftOp->rightSibling;
+
     processVariableLValue(leftOp);
     processExprRelatedNode(rightOp);
-    if (leftOp->dataType == ERROR_TYPE || rightOp->dataType == ERROR_TYPE) {
+
+    if (leftOp->dataType == ERROR_TYPE ||
+        rightOp->dataType == ERROR_TYPE) {
         assignmentNode->dataType = ERROR_TYPE;
     }
-    if (rightOp->dataType == INT_PTR_TYPE || rightOp->dataType == FLOAT_PTR_TYPE) {
+
+    if (rightOp->dataType == INT_PTR_TYPE ||
+        rightOp->dataType == FLOAT_PTR_TYPE) {
         printErrorMsg(rightOp, INCOMPATIBLE_ARRAY_DIMENSION);
         assignmentNode->dataType = ERROR_TYPE;
     }
@@ -449,22 +455,19 @@ void checkAssignmentStmt (AST_NODE *assignmentNode ) {
 
 
 void checkIfStmt (AST_NODE *ifNode) {
-    AST_NODE *boolExpression = ifNode->child;
-    checkAssignOrExpr(boolExpression);
-    AST_NODE *ifBodyNode = boolExpression->rightSibling;
-    processStmtNode(ifBodyNode);
-    AST_NODE *elsePartNode = ifBodyNode->rightSibling;
-    processStmtNode(elsePartNode);
+    checkAssignOrExpr(ifNode->child);
+    processStmtNode(ifNode->child->rightSibling);
+    processStmtNode(ifNode->child->rightSibling->rightSibling);
 }
 
 
 void checkWriteFunction (AST_NODE *functionCallNode) {
-    AST_NODE *functionIDNode = functionCallNode->child;
+    AST_NODE *functionIDNode      = functionCallNode->child;
+    AST_NODE *actualParameterList = functionCallNode->child->rightSibling;
+    AST_NODE *actualParameter     = functionCallNode->child->rightSibling->child;
 
-    AST_NODE *actualParameterList = functionIDNode->rightSibling;
     processGeneralNode(actualParameterList);
 
-    AST_NODE *actualParameter = actualParameterList->child;
 
     int actualParameterNumber = 0;
     while (actualParameter) {
@@ -589,7 +592,6 @@ void processExprRelatedNode (AST_NODE *exprRelatedNode) {
             break;
 
         case STMT_NODE:
-            //function call
             checkFunctionCall(exprRelatedNode);
             break;
 
@@ -602,7 +604,7 @@ void processExprRelatedNode (AST_NODE *exprRelatedNode) {
             break;
 
         default:
-            printf("Unhandle case in void processExprRelatedNode(AST_NODE* exprRelatedNode)\n");
+            printf("Unhandle case in void processExprRelatedNode(AST_NODE *exprRelatedNode)\n");
             exprRelatedNode->dataType = ERROR_TYPE;
             break;
     }
