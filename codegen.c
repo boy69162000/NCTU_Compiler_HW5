@@ -299,7 +299,7 @@ void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
     //SymbolTableEntry *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
     SymbolTableEntry *entry = assignmentNode->child->semantic_value.identifierSemanticValue.symbolTableEntry;
     
-    if(assignmentNode->child->rightSibling->nodeType == EXPR_NODE)
+    if(assignmentNode->child->rightSibling->nodeType == EXPR_NODE || assignmentNode->child->rightSibling->nodeType == STMT_NODE)
         walkTree(F, assignmentNode->child->rightSibling);
     else
         emitArithmeticStmt(F, assignmentNode->child->rightSibling);
@@ -516,8 +516,8 @@ void emitRead (FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "read( ... )");
     fprintf(F, "li    $v0, 5\n");
     fprintf(F, "syscall\n");
-    fprintf(F, "sub   $sp, $sp, 4\n");
     fprintf(F, "sw    $v0, ($sp)\n");
+    fprintf(F, "sub   $sp, $sp, 4\n");
     return;
 }
 
@@ -531,8 +531,8 @@ void emitFread (FILE *F, AST_NODE *functionCallNode) {
     _DBG(F, functionCallNode, "fread( ... )");
     fprintf(F, "li    $v0, 6\n");
     fprintf(F, "syscall\n");
-    fprintf(F, "sub   $sp, $sp, 4\n");
     fprintf(F, "s.s   $f0, ($sp)\n");
+    fprintf(F, "sub   $sp, $sp, 4\n");
     return;
 }
 
@@ -890,18 +890,26 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
                 case BINARY_OP_ADD:
                     fprintf(F, "add.s   $f0, $f0, $f1\n");
+                    fprintf(F, "s.s     $f0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 case BINARY_OP_SUB:
                     fprintf(F, "sub.s   $f0, $f0, $f1\n");
+                    fprintf(F, "s.s     $f0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 case BINARY_OP_MUL:
                     fprintf(F, "mul.s   $f0, $f0, $f1\n");
+                    fprintf(F, "s.s     $f0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 case BINARY_OP_DIV:
                     fprintf(F, "div.s   $f0, $f0, $f1\n");
+                    fprintf(F, "s.s     $f0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 // xatier: for floating point comparison, set $t0 = true ? 1 : 0
@@ -913,6 +921,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "%s_t:\n", fcmpl);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "%s_exit:\n", fcmpl);
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 case BINARY_OP_GE:
@@ -924,6 +934,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "%s_t:\n", fcmpl);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "%s_exit:\n", fcmpl);
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 case BINARY_OP_LE:
@@ -934,6 +946,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "%s_t:\n", fcmpl);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "%s_exit:\n", fcmpl);
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 case BINARY_OP_NE:
@@ -945,6 +959,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "%s_f:\n", fcmpl);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "%s_exit:\n", fcmpl);
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 case BINARY_OP_GT:
@@ -956,6 +972,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "%s_t:\n", fcmpl);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "%s_exit:\n", fcmpl);
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 case BINARY_OP_LT:
@@ -966,6 +984,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     fprintf(F, "%s_t:\n", fcmpl);
                     fprintf(F, "addi    $t0, $zero, 1\n");
                     fprintf(F, "%s_exit:\n", fcmpl);
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                    fprintf(F, "sub     $sp, $sp, 4\n");
                     break;
 
                 default:
@@ -973,8 +993,6 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     exit(1);
             }
             //push stack frame
-            fprintf(F, "s.s     $f0, ($sp)\n");
-            fprintf(F, "sub     $sp, $sp, 4\n");
         }
         else {
             fprintf(F, "# undefined operation occurred\n");
@@ -1171,13 +1189,13 @@ void walkTree (FILE *F, AST_NODE *node) {
                 break;
 
             case EXPR_NODE:
-                walkTree(F, node->child);
-                emitArithmeticStmt(F, node);
+                walkTree(F, left->child);
+                emitArithmeticStmt(F, left);
                 break;
 
             default:
 
-                walkTree(F, node->child);
+                walkTree(F, left->child);
                 break;
         }
         left = left->rightSibling;
