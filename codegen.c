@@ -1132,7 +1132,7 @@ void walkTree (FILE *F, AST_NODE *node) {
                 }
                 else if (left->semantic_value.declSemanticValue.kind == FUNCTION_DECL) {
                     // XXX: xatier: NULL here, too
-                    enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
+                    // enterSymbol(left->child->rightSibling->semantic_value.identifierSemanticValue.identifierName, left->child->rightSibling->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
                     ARoffset = -4;
                     emitBeforeFunc(F, left);
                     walkTree(F, left->child);
