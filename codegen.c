@@ -354,7 +354,7 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     _DBG(F, ifNode, "if ( ... )");
     AST_NODE *ifBlock = ifNode->child->rightSibling;
 
-    char ifLabel[10];
+    char ifLabel[20];
     sprintf(ifLabel, "ifl_%d", rand() % 10000);
 
     if(ifNode->child->nodeType == EXPR_NODE) {
@@ -399,7 +399,7 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
 
 
 void emitWhileStmt (FILE *F, AST_NODE *whileNode) {
-    char whileLabel[10];
+    char whileLabel[20];
     sprintf(whileLabel, "whilel_%d", rand() % 10000);
     _DBG(F, whileNode, "while ( ... )");
 
@@ -566,7 +566,7 @@ void emitWrite (FILE *F, AST_NODE *functionCallNode) {
     // this is a buffer for parameter register
     // no need
     int paramtype = actualParameter->dataType;
-    char label[10];
+    char label[20];
     sprintf(label, "l_%d", rand() % 10000);
     switch (paramtype) {
         case INT_TYPE:
@@ -746,8 +746,8 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             }
 
             // we need a unique lable for jump here
-            char eqLabel[10];
-            char neLabel[10];
+            char eqLabel[20];
+            char neLabel[20];
             switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
                 case BINARY_OP_ADD:
                     fprintf(F, "add     $t0, $t0, $t1\n");
@@ -884,7 +884,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             }
 
             // for floating point comparision
-            char fcmpl[10];
+            char fcmpl[20];
             sprintf(fcmpl, "fcmpl%d", rand() % 10000);
 
             switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
