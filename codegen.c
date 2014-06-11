@@ -40,10 +40,13 @@ void emitPreface (FILE *F, AST_NODE *prog) {
     while (decl != NULL) {
         // XXX: xatier this is wrong because decl->semantic_value.declSemanticValue is not initialized, so everything inside is zero
         // that cause kind == VARIABLE_DECL
+        // Because you uncomment the emitPreface in codegen again... I design this func for walktree part
+        // So it is definitely decl semantic, if you have paid attention on walk tree part
         if (decl->semantic_value.declSemanticValue.kind == VARIABLE_DECL) {
             AST_NODE *id = decl->child->rightSibling;
 
             // XXX: xatier: this is an infinite loop, cause you don't change id ...
+            // fixed
             while (id != NULL) {
                 AST_NODE *dim = id->child;
                 int size = 1;
@@ -83,6 +86,7 @@ void emitPreface (FILE *F, AST_NODE *prog) {
                     default:
                         break;
                 }
+            id = id->rightSibling;
             }
         }
 
@@ -949,6 +953,7 @@ void walkTree (FILE *F, AST_NODE *node) {
                     while(id != NULL) {
                         // XXX: xatier: this line will cause an error because
                         //     id->semantic_value.identifierSemanticValue.symbolTableEntry == NULL
+                        //  It should not be NULL though...'cause entry is stored when decl...
                         enterSymbol(id->semantic_value.identifierSemanticValue.identifierName, id->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
 
                         id->semantic_value.identifierSemanticValue.symbolTableEntry->offset = ARoffset;
@@ -1050,7 +1055,7 @@ void codeGen(AST_NODE *prog) {
         exit(1);
     }
 
-    emitPreface(output, prog);
+    //emitPreface(output, prog);
     // xaiter: walk the AST
     walkTree(output, prog);
     // end of walk the AST
