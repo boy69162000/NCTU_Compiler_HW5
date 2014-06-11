@@ -295,7 +295,7 @@ void emitAfterBlock (FILE *F, AST_NODE *blockNode) {
 }
 
 void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
-    _DBG(F, assignmentNode, "assign = ");
+    _DBG(F, assignmentNode, "assign =");
     //SymbolTableEntry *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
     SymbolTableEntry *entry = assignmentNode->child->semantic_value.identifierSemanticValue.symbolTableEntry;
     emitArithmeticStmt(F, assignmentNode->child->rightSibling);
@@ -350,7 +350,7 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
     AST_NODE *ifBlock = ifNode->child->rightSibling;
 
     char ifLabel[10];
-    sprintf(ifLabel, "ifl_%5d", rand());
+    sprintf(ifLabel, "ifl_%d", rand() % 10000);
 
     emitArithmeticStmt(F, ifNode->child);
     fprintf(F, "sw      $t0, ($sp)\n");
@@ -370,8 +370,8 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
 
     fprintf(F, "j       %s_exit\n", ifLabel);
 
+    fprintf(F, "%s_else:\n", ifLabel);
     if (ifBlock->rightSibling->nodeType != NUL_NODE) {
-        fprintf(F, "%s_else:\n", ifLabel);
         // else-if
         if (ifBlock->rightSibling->semantic_value.stmtSemanticValue.kind == IF_STMT) {
             emitIfStmt(F, ifBlock->rightSibling);
@@ -387,7 +387,7 @@ void emitIfStmt (FILE *F, AST_NODE *ifNode) {
 
 void emitWhileStmt (FILE *F, AST_NODE *whileNode) {
     char whileLabel[10];
-    sprintf(whileLabel, "whilel_%5d", rand());
+    sprintf(whileLabel, "whilel_%d", rand() % 10000);
     _DBG(F, whileNode, "while ( ... )");
 
     fprintf(F, "%s:\n", whileLabel);
@@ -543,7 +543,7 @@ void emitWrite (FILE *F, AST_NODE *functionCallNode) {
     // no need
     int paramtype = actualParameter->dataType;
     char label[10];
-    sprintf(label, "l_%5d", rand());
+    sprintf(label, "l_%d", rand() % 10000);
     switch (paramtype) {
         case INT_TYPE:
             emitArithmeticStmt(F, actualParameter);
@@ -720,10 +720,10 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
 
                 case BINARY_OP_EQ:
-                    sprintf(eqLabel, "eql_%5d", rand());
+                    sprintf(eqLabel, "eql_%d", rand() % 10000);
                     fprintf(F, "bne     $t0, $t1, %s\n", eqLabel);
                     fprintf(F, "addi    $t0, $zero, 1\n");
-                    fprintf(F, "j       %sxx\r", eqLabel);
+                    fprintf(F, "j       %sxx\n", eqLabel);
                     fprintf(F, "%s:\n", eqLabel);
                     fprintf(F, "addi    $t0, $zero, 0\n");
                     fprintf(F, "%sxx:\n", eqLabel);
@@ -742,17 +742,17 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
 
                 case BINARY_OP_NE:
-                    sprintf(neLabel, "nel_%5d", rand());
+                    sprintf(neLabel, "nel_%d", rand() % 10000);
                     fprintf(F, "beq     $t0, $t1, %s\n", neLabel);
                     fprintf(F, "addi    $t0, $zero, 1\n");
-                    fprintf(F, "j       %sxx\r", neLabel);
+                    fprintf(F, "j       %sxx\n", neLabel);
                     fprintf(F, "%s:\n", neLabel);
                     fprintf(F, "addi    $t0, $zero, 0\n");
                     fprintf(F, "%sxx:\n", neLabel);
                     break;
 
                 case BINARY_OP_GT:
-                    fprintf(F, "slt     $t0, $t1, t0\n");
+                    fprintf(F, "slt     $t0, $t1, $t0\n");
                     break;
 
                 case BINARY_OP_LT:
@@ -801,7 +801,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
 
             // for floating point comparision
             char fcmpl[10];
-            sprintf(fcmpl, "fcmpl%s", rand());
+            sprintf(fcmpl, "fcmpl%d", rand() % 10000);
 
             switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
                 case BINARY_OP_ADD:
@@ -1026,8 +1026,8 @@ void walkTree (FILE *F, AST_NODE *node) {
                 closeScope();
                 emitAfterBlock(F, left);
                 break;
-            
-            case STMT_LIST_NODE: 
+
+            case STMT_LIST_NODE:
                 walkTree(F, left->child);
                 break;
 
