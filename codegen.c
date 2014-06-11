@@ -298,7 +298,7 @@ void emitAssignStmt (FILE *F, AST_NODE *assignmentNode) {
     _DBG(F, assignmentNode, "assign =");
     //SymbolTableEntry *entry = retrieveSymbol(assignmentNode->child->semantic_value.identifierSemanticValue.identifierName);
     SymbolTableEntry *entry = assignmentNode->child->semantic_value.identifierSemanticValue.symbolTableEntry;
-    
+
     if(assignmentNode->child->rightSibling->nodeType == EXPR_NODE)
         walkTree(F, assignmentNode->child->rightSibling);
     else
@@ -816,7 +816,7 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
 
                 default:
-                    fprintf(F, "# undefined operation occurred\n");
+                    printf("Undefined operation occurred\n");
                     exit(1);
                     break;
             }
@@ -969,15 +969,30 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
                     break;
 
                 default:
-                    fprintf(F, "# undefined operation occurred\n");
+                    printf("Undefined operation occurred\n");
                     exit(1);
             }
             //push stack frame
-            fprintf(F, "s.s     $f0, ($sp)\n");
+            switch (exprNode->semantic_value.exprSemanticValue.op.binaryOp) {
+                case BINARY_OP_ADD: case BINARY_OP_SUB:
+                case BINARY_OP_MUL: case BINARY_OP_DIV:
+                    fprintf(F, "s.s     $f0, ($sp)\n");
+                    break;
+
+                case BINARY_OP_EQ: case BINARY_OP_GE:
+                case BINARY_OP_LE: case BINARY_OP_NE:
+                case BINARY_OP_GT: case BINARY_OP_LT:
+                    fprintf(F, "sw      $t0, ($sp)\n");
+                    break;
+
+                default:
+                    printf("Undefined operation occurred\n");
+                    exit(1);
+            }
             fprintf(F, "sub     $sp, $sp, 4\n");
         }
         else {
-            fprintf(F, "# undefined operation occurred\n");
+            printf("Undefined operation occurred\n");
             exit(1);
         }
     }
@@ -1056,12 +1071,12 @@ void emitArithmeticStmt (FILE *F, AST_NODE *exprNode) {
             fprintf(F, "sub     $sp, $sp, 4\n");
         }
         else {
-            fprintf(F, "# undefined operation occurred\n");
+            printf("Undefined operation occurred\n");
             exit(1);
         }
     }
     else {
-        fprintf(F, "# undefined operation occurred\n");
+        printf("Undefined operation occurred\n");
         exit(1);
 
     }
@@ -1076,7 +1091,6 @@ void walkTree (FILE *F, AST_NODE *node) {
 
     // this is a DFS? // actually not quite so
     while (left != NULL) {
-        printf("%d\n", left->nodeType);
         switch (left->nodeType) {
             case VARIABLE_DECL_LIST_NODE:
                 if(symbolTable.currentLevel == 0)
