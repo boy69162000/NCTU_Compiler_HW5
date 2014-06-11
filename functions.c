@@ -30,7 +30,7 @@ char *AST_TYPE_string[] = {
 
 int printGVNode (FILE *fp, AST_NODE *node, int count);
 
-char *printLabelString (FILE *fp, AST_NODE *astNode) {
+void printLabelString (FILE *fp, AST_NODE *astNode) {
     char *binaryOpString[] = {
         "+", "-", "*", "/",
         "==", ">=", "<=", "!=", ">", "<",
