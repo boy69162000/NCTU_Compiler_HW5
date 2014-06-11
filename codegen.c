@@ -414,7 +414,7 @@ void emitWhileStmt (FILE *F, AST_NODE *whileNode) {
     else
         emitArithmeticStmt(F, whileNode->child);
 
-    fprintf(F, "lw      $t0, ($sp)\n");
+    fprintf(F, "lw      $t0, 4($sp)\n");
     fprintf(F, "add     $sp, $sp, 4\n");
     fprintf(F, "beqz    $t0, %s_exit\n", whileLabel);
     walkTree(F, whileNode->child->rightSibling);
