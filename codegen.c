@@ -936,7 +936,6 @@ void walkTree (FILE *F, AST_NODE *node) {
     AST_NODE *left = node;
 
     // this is a DFS? // actually not quite so
-
     while (left != NULL) {
         switch (left->nodeType) {
             case VARIABLE_DECL_LIST_NODE:
@@ -955,7 +954,6 @@ void walkTree (FILE *F, AST_NODE *node) {
                         //     id->semantic_value.identifierSemanticValue.symbolTableEntry == NULL
                         //  It should not be NULL though...'cause entry is stored when decl...
                         enterSymbol(id->semantic_value.identifierSemanticValue.identifierName, id->semantic_value.identifierSemanticValue.symbolTableEntry->attribute);
-
                         id->semantic_value.identifierSemanticValue.symbolTableEntry->offset = ARoffset;
                         if(id->semantic_value.identifierSemanticValue.kind == NORMAL_ID) {
                             ARoffset -= 4;
